@@ -2,9 +2,14 @@
 
 A comprehensive, production-ready Pharmacy Management System built with **Next.js 15**, featuring all MVP, Phase 2, Phase 3, and Phase 4 features.
 
+## credential
+
+Login: admin@pharmacypro.com / admin123
+
 ## ✨ Features
 
 ### MVP (Phase 1)
+
 - ✅ **Inventory Management** - Medicine CRUD, categories, suppliers, stock tracking
 - ✅ **Prescription Management** - Upload, manual entry, patient/doctor management
 - ✅ **Sales & Billing** - POS with GST calculation, multi-payment modes, invoicing
@@ -14,6 +19,7 @@ A comprehensive, production-ready Pharmacy Management System built with **Next.j
 - ✅ **Security** - JWT auth, audit logs, input validation
 
 ### Phase 2 (Core Enhancements)
+
 - ✅ **Batch & Expiry Tracking** - Auto-alerts for near-expiry medicines
 - ✅ **Barcode/QR System** - Generate and scan barcodes
 - ✅ **Multi-Location Inventory** - Inter-branch stock transfers
@@ -24,6 +30,7 @@ A comprehensive, production-ready Pharmacy Management System built with **Next.j
 - ✅ **Loyalty Program** - Points system with tiered rewards
 
 ### Phase 3 (Competitive Features)
+
 - ✅ **Online Pharmacy** - E-commerce with product catalog, cart, checkout
 - ✅ **Delivery Management** - Pincode check, delivery slots, live tracking
 - ✅ **PWA** - Offline mode, mobile POS, push notifications
@@ -32,6 +39,7 @@ A comprehensive, production-ready Pharmacy Management System built with **Next.j
 - ✅ **Security 2FA** - Two-factor authentication
 
 ### Phase 4 (Advanced)
+
 - ✅ **Telemedicine Integration** - Practo/e-Sanjeevani
 - ✅ **AI-Powered Features** - Demand forecasting, price optimization, fraud detection
 - ✅ **Subscription Model** - Monthly medicine subscriptions
@@ -55,6 +63,7 @@ A comprehensive, production-ready Pharmacy Management System built with **Next.j
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 20+
 - PostgreSQL 16+
 - Redis 7+

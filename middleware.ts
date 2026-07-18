@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "next-auth/middleware";
+import { authOptions } from "@/lib/auth";
 
 export default withAuth(
   function middleware(req) {
@@ -26,9 +27,11 @@ export default withAuth(
     return NextResponse.next();
   },
   {
+    pages: authOptions.pages,
     callbacks: {
       authorized({ req, token }) {
         if (req.nextUrl.pathname.startsWith("/api/auth")) return true;
+        if (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/register" || req.nextUrl.pathname === "/forgot-password" || req.nextUrl.pathname === "/otp-verify") return true;
         return token !== null;
       },
     },

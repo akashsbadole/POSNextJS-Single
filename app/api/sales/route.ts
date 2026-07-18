@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const itemTotal = medicine.sellingPrice.toNumber() * item.quantity;
-      const gst = calculateGST(itemTotal, medicine.gstRate.toNumber());
+      const itemTotal = medicine.sellingPrice * item.quantity;
+      const gst = calculateGST(itemTotal, medicine.gstRate);
 
       subtotal += itemTotal;
       totalCGST += gst.cgst;
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         action: "CREATE",
         entityType: "sale",
         entityId: sale.id,
-        newData: sale,
+        newData: JSON.stringify(sale),
       },
     });
 

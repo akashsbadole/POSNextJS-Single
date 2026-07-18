@@ -46,7 +46,7 @@ export async function registerUser(data: z.infer<typeof registerSchema>) {
         action: "CREATE",
         entityType: "user",
         entityId: user.id,
-        newData: { name: user.name, email: user.email, role: user.role },
+        newData: JSON.stringify({ name: user.name, email: user.email, role: user.role }),
       },
     });
 
