@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
@@ -20,43 +22,58 @@ import {
   Pill,
   Printer,
   X,
+  Loader2,
 } from "lucide-react";
 
 interface CartItem {
   id: string;
+  medicineId: string;
   name: string;
-  generic: string;
+  genericName: string;
   price: number;
   quantity: number;
   gstRate: number;
   batch: string;
 }
 
-const sampleMedicines = [
-  { id: "1", name: "Paracetamol 500mg", generic: "Paracetamol", price: 25.50, gstRate: 5, batch: "B2024001" },
-  { id: "2", name: "Amoxicillin 250mg", generic: "Amoxicillin", price: 120.00, gstRate: 12, batch: "B2024002" },
-  { id: "3", name: "Vitamin D3 60K", generic: "Cholecalciferol", price: 85.00, gstRate: 5, batch: "B2024003" },
-  { id: "4", name: "Cetirizine 10mg", generic: "Cetirizine", price: 15.00, gstRate: 5, batch: "B2024004" },
-  { id: "5", name: "Metformin 500mg", generic: "Metformin", price: 45.00, gstRate: 12, batch: "B2024005" },
-  { id: "6", name: "Amlodipine 5mg", generic: "Amlodipine", price: 55.00, gstRate: 12, batch: "B2024006" },
-];
+interface Medicine {
+  id: string;
+  name: string;
+  genericName: string;
+  sellingPrice: number;
+  gstRate: number;
+  inventories: { batches: { batchNumber: string }[] }[];
+}
 
 export default function POSPage() {
+  const { data: session } = useSession();
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentMode, setPaymentMode] = useState<"cash" | "card" | "upi" | "credit">("cash");
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "flat">("none");
   const [discountValue, setDiscountValue] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
-  const addToCart = (medicine: typeof sampleMedicines[0]) => {
+  useEffect(() => {
+    fetch("/api/medicines?limit=50")
+      .then((r) => r.json())
+      .then((data) => setMedicines(data.medicines))
+      .catch(() => toast.error("Failed to load medicines"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const addToCart = (med: Medicine) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === medicine.id);
+      const existing = prev.find((item) => item.id === med.id);
       if (existing) {
         return prev.map((item) =>
-          item.id === medicine.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === med.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { ...medicine, quantity: 1 }];
+      const batch = med.inventories?.[0]?.batches?.[0]?.batchNumber || "N/A";
+      return [...prev, { id: med.id, medicineId: med.id, name: med.name, genericName: med.genericName, price: med.sellingPrice, quantity: 1, gstRate: med.gstRate, batch }];
     });
   };
 
@@ -95,15 +112,51 @@ export default function POSPage() {
   const roundOff = Math.round(totalAmount) - totalAmount;
   const finalAmount = Math.round(totalAmount);
 
-  const filteredMedicines = sampleMedicines.filter(
+  const filteredMedicines = medicines.filter(
     (med) =>
       med.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      med.generic.toLowerCase().includes(searchQuery.toLowerCase())
+      med.genericName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleGenerateInvoice = async () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            medicineId: item.medicineId,
+            quantity: item.quantity,
+          })),
+          paymentMode,
+          discountType: discountType === "none" ? undefined : discountType,
+          discountValue: discountType === "none" ? undefined : discountValue,
+          branchId: session?.user?.branchId || "",
+          cashierId: session?.user?.id || "",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create sale");
+      }
+      toast.success("Invoice generated successfully!");
+      setCart([]);
+      setDiscountType("none");
+      setDiscountValue(0);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-4rem)] flex">
-      {/* Left Panel - Medicine Search */}
       <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-gray-700">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-4">
@@ -126,36 +179,41 @@ export default function POSPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMedicines.map((med) => (
-              <Card
-                key={med.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => addToCart(med)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-pharmacy-100 dark:bg-pharmacy-900/20 flex items-center justify-center flex-shrink-0">
-                      <Pill className="w-5 h-5 text-pharmacy-600" />
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-pharmacy-500" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMedicines.map((med) => (
+                <Card
+                  key={med.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => addToCart(med)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="w-10 h-10 rounded-lg bg-pharmacy-100 dark:bg-pharmacy-900/20 flex items-center justify-center flex-shrink-0">
+                        <Pill className="w-5 h-5 text-pharmacy-600" />
+                      </div>
+                      <Badge variant="secondary" className="text-xs">GST {med.gstRate}%</Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">GST {med.gstRate}%</Badge>
-                  </div>
-                  <h3 className="font-medium text-sm mt-3 truncate">{med.name}</h3>
-                  <p className="text-xs text-gray-500">{med.generic}</p>
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="font-bold text-pharmacy-600">₹{med.price.toFixed(2)}</span>
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <h3 className="font-medium text-sm mt-3 truncate">{med.name}</h3>
+                    <p className="text-xs text-gray-500">{med.genericName}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="font-bold text-pharmacy-600">₹{med.sellingPrice.toFixed(2)}</span>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Right Panel - Cart & Billing */}
       <div className="w-[420px] flex flex-col bg-white dark:bg-gray-800">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -185,29 +243,14 @@ export default function POSPage() {
                   <p className="text-xs text-gray-500">₹{item.price.toFixed(2)} × {item.quantity}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => updateQuantity(item.id, -1)}
-                  >
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)}>
                     <Minus className="w-3 h-3" />
                   </Button>
                   <span className="w-8 text-center font-medium">{item.quantity}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => updateQuantity(item.id, 1)}
-                  >
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)}>
                     <Plus className="w-3 h-3" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-red-500"
-                    onClick={() => removeFromCart(item.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => removeFromCart(item.id)}>
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
@@ -216,9 +259,7 @@ export default function POSPage() {
           )}
         </div>
 
-        {/* Billing Summary */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
-          {/* Discount */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Discount</label>
             <div className="flex gap-2">
@@ -243,7 +284,6 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Payment Mode */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Payment Mode</label>
             <div className="grid grid-cols-4 gap-2">
@@ -267,7 +307,6 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Summary */}
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">Subtotal</span>
@@ -299,9 +338,9 @@ export default function POSPage() {
             </div>
           </div>
 
-          <Button className="w-full h-12 text-lg" disabled={cart.length === 0}>
-            <Receipt className="w-5 h-5 mr-2" />
-            Generate Invoice
+          <Button className="w-full h-12 text-lg" disabled={cart.length === 0 || submitting} onClick={handleGenerateInvoice}>
+            {submitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Receipt className="w-5 h-5 mr-2" />}
+            {submitting ? "Processing..." : "Generate Invoice"}
           </Button>
           <Button variant="outline" className="w-full" disabled={cart.length === 0}>
             <Printer className="w-4 h-4 mr-2" />

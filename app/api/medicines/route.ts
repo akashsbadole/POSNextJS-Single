@@ -18,6 +18,7 @@ const medicineSchema = z.object({
   reorderLevel: z.number().default(10),
   reorderQuantity: z.number().default(50),
   isPrescriptionRequired: z.boolean().default(false),
+  branchId: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
           category: true,
           supplier: true,
           inventories: {
-            include: { batches: true },
+            include: { batches: true, branch: true },
           },
         },
         skip: (page - 1) * limit,
@@ -85,12 +86,27 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = medicineSchema.parse(body);
+    const { branchId, ...medicineData } = validated;
 
-    const medicine = await prisma.medicine.create({
-      data: validated,
+    const result = await prisma.$transaction(async (tx) => {
+      const medicine = await tx.medicine.create({
+        data: medicineData,
+      });
+
+      if (branchId) {
+        await tx.inventory.create({
+          data: {
+            medicineId: medicine.id,
+            branchId,
+            quantity: 0,
+          },
+        });
+      }
+
+      return medicine;
     });
 
-    return NextResponse.json(medicine, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -101,6 +117,76 @@ export async function POST(req: NextRequest) {
     console.error("Error creating medicine:", error);
     return NextResponse.json(
       { error: "Failed to create medicine" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Medicine ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.medicine.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Medicine not found" },
+        { status: 404 }
+      );
+    }
+
+    const medicine = await prisma.medicine.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json(medicine);
+  } catch (error) {
+    console.error("Error updating medicine:", error);
+    return NextResponse.json(
+      { error: "Failed to update medicine" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Medicine ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.medicine.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Medicine not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.medicine.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting medicine:", error);
+    return NextResponse.json(
+      { error: "Failed to delete medicine" },
       { status: 500 }
     );
   }
