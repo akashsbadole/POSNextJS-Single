@@ -64,3 +64,12 @@ playwright-report/
 test-results/
 # clerk configuration (can include secrets)
 /.clerk/
+
+/hooks/
+
+.opencode
+/agents
+opencode.json
+
+AGENTS.md
+/.agents
