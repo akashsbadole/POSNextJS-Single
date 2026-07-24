@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileText, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, FileText, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -14,25 +14,48 @@ interface Prescription {
   createdAt: string;
   patient: { name: string };
   doctor: { name: string } | null;
+  items: { id: string; medicineName: string; quantity: number | null; isDispensed: boolean }[];
 }
 
 export default function ProcessPage() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     fetch(`/api/prescriptions?limit=20`)
       .then((r) => r.json())
       .then((d) => setPrescriptions(d.prescriptions || []))
-      .catch(() => {
-        // ponytail: no /api/prescriptions endpoint yet — use seed data
-        setPrescriptions([]);
-      })
+      .catch(() => setPrescriptions([]))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(load, []);
+
+  const updateStatus = async (id: string, status: string) => {
+    setUpdating(id);
+    try {
+      const res = await fetch(`/api/prescriptions`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) {
+        toast.success(`Prescription ${status.toLowerCase()}`);
+        load();
+      } else {
+        toast.error("Failed to update prescription");
+      }
+    } catch {
+      toast.error("Failed to update prescription");
+    } finally {
+      setUpdating(null);
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Process Prescriptions</h1>
@@ -71,10 +94,15 @@ export default function ProcessPage() {
               </TableHeader>
               <TableBody>
                 {prescriptions.map((p) => (
-                  <TableRow key={p.id}>
+                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-xs">{p.prescriptionNumber}</TableCell>
                     <TableCell>{p.patient.name}</TableCell>
                     <TableCell>{p.doctor?.name || "—"}</TableCell>
+                    <TableCell>
+                      <div className="text-xs text-gray-500 max-w-[200px]">
+                        {p.items.map((it) => `${it.medicineName}${it.quantity ? ` x${it.quantity}` : ""}`).join(", ") || "—"}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={p.status === "FULFILLED" ? "success" : p.status === "CANCELLED" ? "destructive" : "warning"}>
                         {p.status}
@@ -83,8 +111,20 @@ export default function ProcessPage() {
                     <TableCell className="text-xs">{new Date(p.createdAt).toLocaleDateString("en-IN")}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-green-500"><CheckCircle2 className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500"><XCircle className="w-4 h-4" /></Button>
+                        <Button
+                          variant="ghost" size="icon" className="w-8 h-8 text-green-500"
+                          disabled={updating === p.id || p.status === "FULFILLED"}
+                          onClick={() => updateStatus(p.id, "FULFILLED")}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="w-8 h-8 text-red-500"
+                          disabled={updating === p.id || p.status === "CANCELLED"}
+                          onClick={() => updateStatus(p.id, "CANCELLED")}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, AlertTriangle, TrendingUp, Download, Loader2 } from "lucide-react";
+import { Package, AlertTriangle, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+import type { Medicine } from "@/types";
 
 export default function InventoryReportsPage() {
   const [loading, setLoading] = useState(true);
-  const [medicines, setMedicines] = useState<any[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
 
   useEffect(() => {
     fetch("/api/medicines?limit=50")
@@ -20,15 +21,15 @@ export default function InventoryReportsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalStock = medicines.reduce((s: number, m: any) =>
-    s + (m.inventories || []).reduce((si: number, i: any) => si + (i.quantity || 0), 0), 0);
-  const totalValue = medicines.reduce((s: number, m: any) =>
-    s + (m.inventories || []).reduce((si: number, i: any) => si + (i.quantity || 0) * (m.purchasePrice || 0), 0), 0);
-  const lowStock = medicines.filter((m: any) =>
-    (m.inventories || []).reduce((s: number, i: any) => s + (i.quantity || 0), 0) <= 10);
-  const expiringSoon = medicines.filter((m: any) =>
-    (m.inventories || []).some((i: any) =>
-      (i.batches || []).some((b: any) => {
+  const totalStock = medicines.reduce((s, m) =>
+    s + (m.inventories || []).reduce((si, i) => si + (i.quantity || 0), 0), 0);
+  const totalValue = medicines.reduce((s, m) =>
+    s + (m.inventories || []).reduce((si, i) => si + (i.quantity || 0) * (m.purchasePrice || 0), 0), 0);
+  const lowStock = medicines.filter((m) =>
+    (m.inventories || []).reduce((s, i) => s + (i.quantity || 0), 0) <= 10);
+  const expiringSoon = medicines.filter((m) =>
+    (m.inventories || []).some((i) =>
+      (i.batches || []).some((b) => {
         if (!b.expiryDate) return false;
         const days = (new Date(b.expiryDate).getTime() - Date.now()) / 86400000;
         return days >= 0 && days <= 30;
@@ -37,7 +38,7 @@ export default function InventoryReportsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Inventory Reports</h1>
@@ -85,14 +86,14 @@ export default function InventoryReportsPage() {
                   <p className="text-sm text-gray-500 text-center py-4">All items adequately stocked</p>
                 ) : (
                   <div className="space-y-2">
-                    {lowStock.slice(0, 5).map((m: any) => (
+                    {lowStock.slice(0, 5).map((m) => (
                       <div key={m.id} className="flex items-center justify-between p-2 rounded bg-red-50">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 text-red-500" />
                           <span className="text-sm">{m.name}</span>
                         </div>
                         <Badge variant="destructive">
-                          {m.inventories.reduce((s: number, i: any) => s + i.quantity, 0)} units
+                          {m.inventories!.reduce((s, i) => s + i.quantity, 0)} units
                         </Badge>
                       </div>
                     ))}
@@ -107,7 +108,7 @@ export default function InventoryReportsPage() {
                   <p className="text-sm text-gray-500 text-center py-4">No items expiring soon</p>
                 ) : (
                   <div className="space-y-2">
-                    {expiringSoon.slice(0, 5).map((m: any) => (
+                    {expiringSoon.slice(0, 5).map((m) => (
                       <div key={m.id} className="flex items-center justify-between p-2 rounded bg-amber-50">
                         <div className="flex items-center gap-2">
                           <Package className="w-4 h-4 text-amber-500" />

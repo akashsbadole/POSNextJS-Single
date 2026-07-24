@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (status) where.status = status;
 
     const [orders, total] = await Promise.all([

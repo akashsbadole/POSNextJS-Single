@@ -32,7 +32,7 @@ export default function PaymentsPage() {
   const totalPayable = orders.reduce((s, o) => s + o.totalAmount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Supplier Payments</h1>
         <p className="text-gray-500">Track payments to suppliers</p>

@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   HeartPulse, Video, Calendar, Clock, User, Stethoscope,
-  Phone, MessageCircle, CheckCircle2, XCircle,
+  Phone, MessageCircle,
 } from "lucide-react";
 
+// ponytail: demo-only UI — no schema, no API, no real data. Remove when telemedicine is spec'd.
 export default function TelemedicinePage() {
   const appointments = [
     { id: 1, patient: "Rahul Sharma", doctor: "Dr. Priya Patel", time: "2:30 PM Today", type: "Video", status: "confirmed" },
@@ -16,10 +17,13 @@ export default function TelemedicinePage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Telemedicine</h1>
-        <p className="text-gray-500">Virtual consultations and remote patient care</p>
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Telemedicine</h1>
+          <p className="text-gray-500">Virtual consultations and remote patient care</p>
+        </div>
+        <Badge variant="secondary" className="text-xs">Demo</Badge>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

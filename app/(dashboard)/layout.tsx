@@ -58,8 +58,16 @@ const navItems = [
       { title: "Medicines", href: "/inventory/medicines", icon: Pill },
       { title: "Categories", href: "/inventory/categories", icon: Package },
       { title: "Suppliers", href: "/inventory/suppliers", icon: Truck },
-      { title: "Stock Alerts", href: "/inventory/stock-alerts", icon: AlertTriangle },
-      { title: "Bulk Actions", href: "/inventory/bulk-actions", icon: FileText },
+      {
+        title: "Stock Alerts",
+        href: "/inventory/stock-alerts",
+        icon: AlertTriangle,
+      },
+      {
+        title: "Bulk Actions",
+        href: "/inventory/bulk-actions",
+        icon: FileText,
+      },
     ],
   },
   {
@@ -83,6 +91,7 @@ const navItems = [
       { title: "Point of Sale", href: "/pos", icon: CreditCard },
       { title: "Invoices", href: "/sales/invoices", icon: Receipt },
       { title: "Returns", href: "/sales/returns", icon: ArrowDownRight },
+      { title: "Promise Orders", href: "/sales/promise-orders", icon: Bell },
     ],
   },
   {
@@ -104,7 +113,11 @@ const navItems = [
     children: [
       { title: "Sales Reports", href: "/reports/sales", icon: TrendingUp },
       { title: "Inventory Reports", href: "/reports/inventory", icon: Package },
-      { title: "Financial Reports", href: "/reports/financial", icon: DollarSign },
+      {
+        title: "Financial Reports",
+        href: "/reports/financial",
+        icon: DollarSign,
+      },
       { title: "Custom Reports", href: "/reports/custom", icon: BarChart3 },
     ],
   },
@@ -155,18 +168,40 @@ const navItems = [
     children: [
       { title: "General", href: "/admin/settings", icon: Settings },
       { title: "Audit Logs", href: "/admin/audit-logs", icon: FileText },
-      { title: "Languages", href: "/admin/settings?tab=languages", icon: Languages },
+      { title: "Custom Fields", href: "/admin/custom-fields", icon: FileText },
+      { title: "Drug Licenses", href: "/admin/drug-licenses", icon: Shield },
+      { title: "Schemes", href: "/admin/schemes", icon: Badge },
+      {
+        title: "Languages",
+        href: "/admin/settings?tab=languages",
+        icon: Languages,
+      },
     ],
   },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/features")
+      .then((r) => r.json())
+      .then((data) => setFeatures(data))
+      .catch(() => {});
+  }, [status]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -175,10 +210,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [status, router]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/onboarding")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.completed && !pathname?.startsWith("/onboarding")) {
+          router.replace("/onboarding");
+        }
+      })
+      .catch(() => {});
+  }, [status, pathname, router]);
+
+  useEffect(() => {
     const currentPath = pathname || "";
     for (const item of navItems) {
       if (item.children) {
-        const isActive = item.children.some((child) => currentPath.startsWith(child.href));
+        const isActive = item.children.some((child) =>
+          currentPath.startsWith(child.href),
+        );
         if (isActive) {
           setExpandedMenus((prev) => ({ ...prev, [item.title]: true }));
         }
@@ -198,12 +247,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setExpandedMenus((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
-  const isActive = (href: string) => (pathname || "") === href || (pathname || "").startsWith(href + "/");
+  const isActive = (href: string) =>
+    (pathname || "") === href || (pathname || "").startsWith(href + "/");
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (!features || Object.keys(features).length === 0) return true;
+    switch (item.title) {
+      case "Online Store":
+        return features.online_store ?? true;
+      case "Subscriptions":
+        return features.subscriptions ?? false;
+      case "Analytics":
+        return features.analytics ?? false;
+      case "Telemedicine":
+        return features.telemedicine ?? false;
+      default:
+        return true;
+    }
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       <aside
-        className={`${sidebarOpen ? "w-64" : "w-16"} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col fixed h-full z-20`}
+        className={`fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ${
+          sidebarOpen
+            ? "translate-x-0 w-64"
+            : "-translate-x-full md:translate-x-0 md:w-16"
+        }`}
       >
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
           {sidebarOpen && (
@@ -211,21 +281,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="w-8 h-8 rounded-lg bg-pharmacy-500 flex items-center justify-center">
                 <Pill className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-lg text-gray-900 dark:text-white">PharmacyPro</span>
+              <span className="font-bold text-lg text-gray-900 dark:text-white">
+                PharmacyPro
+              </span>
             </div>
           )}
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? (
+              <X className="w-4 h-4" />
+            ) : (
+              <Menu className="w-4 h-4" />
+            )}
           </Button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <div key={item.title}>
               {item.children ? (
                 <div>
                   <button
                     onClick={() => toggleMenu(item.title)}
+                    aria-expanded={expandedMenus[item.title]}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       sidebarOpen
                         ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -253,6 +335,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Link
                           key={child.href}
                           href={child.href}
+                          aria-current={
+                            isActive(child.href) ? "page" : undefined
+                          }
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                             isActive(child.href)
                               ? "bg-pharmacy-50 text-pharmacy-700 dark:bg-pharmacy-900/20 dark:text-pharmacy-400"
@@ -269,6 +354,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link
                   href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     sidebarOpen
                       ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -293,7 +379,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-          <div className={`flex items-center gap-3 ${sidebarOpen ? "" : "justify-center"}`}>
+          <div
+            className={`flex items-center gap-3 ${sidebarOpen ? "" : "justify-center"}`}
+          >
             <div className="w-8 h-8 rounded-full bg-pharmacy-100 dark:bg-pharmacy-900 flex items-center justify-center">
               <Users className="w-4 h-4 text-pharmacy-600 dark:text-pharmacy-400" />
             </div>
@@ -311,35 +399,63 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main className={`flex-1 ${sidebarOpen ? "ml-64" : "ml-16"} transition-all duration-300`}>
-        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-10">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <main
+        id="main-content"
+        className={`flex-1 transition-all duration-300 ${sidebarOpen ? "md:ml-64" : "md:ml-16"}`}
+      >
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
           <div className="flex items-center gap-4 flex-1">
-            <div className="relative max-w-md w-full">
+            <div className="relative max-w-md w-full hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search medicines, patients, invoices..."
+                aria-label="Global search"
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-pharmacy-500"
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative">
+          <div className="flex items-center gap-1 sm:gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label="Notifications"
+            >
               <Bell className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/login" })}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              aria-label="Sign out"
+            >
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </header>
 
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
   );

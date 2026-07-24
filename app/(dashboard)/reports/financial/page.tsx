@@ -2,18 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, TrendingDown, Download, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Download, Loader2 } from "lucide-react";
 
 export default function FinancialReportsPage() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{ kpis?: Record<string, number>; trend?: { month: string; sales: number; orders: number }[] } | null>(null);
 
   useEffect(() => {
-    fetch("/api/dashboard")
+    fetch("/api/reports")
       .then((r) => r.json())
       .then((d) => setData(d))
       .catch(() => {})
@@ -21,7 +19,7 @@ export default function FinancialReportsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Financial Reports</h1>
@@ -38,29 +36,26 @@ export default function FinancialReportsPage() {
             <Card>
               <CardContent className="p-6">
                 <p className="text-sm text-gray-500">Total Revenue</p>
-                <p className="text-2xl font-bold mt-1">₹{(data?.totalRevenue || 0).toLocaleString("en-IN")}</p>
-                <div className="flex items-center gap-1 mt-2 text-green-600 text-sm">
-                  <TrendingUp className="w-4 h-4" />+12.5%
-                </div>
+                <p className="text-2xl font-bold mt-1">₹{(data?.kpis?.totalRevenue || 0).toLocaleString("en-IN")}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
                 <p className="text-sm text-gray-500">Total Sales</p>
-                <p className="text-2xl font-bold mt-1">{data?.totalSales || 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.kpis?.totalOrders || 0}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
-                <p className="text-sm text-gray-500">Active Medicines</p>
-                <p className="text-2xl font-bold mt-1">{data?.totalMedicines || 0}</p>
+                <p className="text-sm text-gray-500">Total GST</p>
+                <p className="text-2xl font-bold mt-1">₹{(data?.kpis?.totalGST || 0).toLocaleString("en-IN")}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
                 <p className="text-sm text-gray-500">Average Order Value</p>
                 <p className="text-2xl font-bold mt-1">
-                  ₹{data?.totalSales ? Math.round(data.totalRevenue / data.totalSales).toLocaleString("en-IN") : 0}
+                  ₹{(data?.kpis?.avgOrderValue || 0).toLocaleString("en-IN")}
                 </p>
               </CardContent>
             </Card>
@@ -81,19 +76,20 @@ export default function FinancialReportsPage() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell>This Month</TableCell>
-                    <TableCell>₹{(data?.totalRevenue || 0).toLocaleString("en-IN")}</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                    <TableCell>₹0.00</TableCell>
+                    <TableCell>All Time</TableCell>
+                    <TableCell>₹{(data?.kpis?.totalTaxable || 0).toLocaleString("en-IN")}</TableCell>
+                    <TableCell>₹{(data?.kpis?.totalCGST || 0).toLocaleString("en-IN")}</TableCell>
+                    <TableCell>₹{(data?.kpis?.totalSGST || 0).toLocaleString("en-IN")}</TableCell>
+                    <TableCell>₹{(data?.kpis?.totalGST || 0).toLocaleString("en-IN")}</TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell>Previous Month</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                    <TableCell>₹0.00</TableCell>
-                  </TableRow>
+                  {(data?.trend || []).map((t) => (
+                    <TableRow key={t.month}>
+                      <TableCell>{t.month}</TableCell>
+                      <TableCell colSpan={4} className="text-xs text-gray-500">
+                        {t.orders} orders · ₹{t.sales.toLocaleString("en-IN")} revenue
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>

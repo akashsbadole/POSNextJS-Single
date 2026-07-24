@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SearchInput } from "@/components/ui/search-input";
 import {
-  Search,
   Receipt,
   ChevronLeft,
   ChevronRight,
@@ -61,7 +60,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoices</h1>
@@ -77,15 +76,12 @@ export default function InvoicesPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search by invoice no. or patient..."
-              className="pl-10"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            />
-          </div>
+          <SearchInput
+            searchValue={search}
+            onSearch={(value) => { setSearch(value); setPage(1); }}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by invoice no. or patient..."
+          />
         </CardContent>
       </Card>
 
@@ -133,13 +129,13 @@ export default function InvoicesPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="w-8 h-8">
+                          <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="View">
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-8 h-8">
+                          <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Print">
                             <Printer className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-8 h-8">
+                          <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Download">
                             <Download className="w-4 h-4" />
                           </Button>
                         </div>
@@ -159,10 +155,10 @@ export default function InvoicesPage() {
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
                 <p className="text-sm text-gray-500">Page {page} of {totalPages}</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>

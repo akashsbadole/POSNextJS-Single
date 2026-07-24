@@ -1,30 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileSpreadsheet, Barcode, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Barcode, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+
+function parseCSV(text: string): { headers: string[]; rows: string[][] } {
+  // ponytail: simple CSV parse, no RFC 4180 (no multiline quoted fields)
+  const lines = text.split("\n").filter((l) => l.trim());
+  if (lines.length < 2) return { headers: [], rows: [] };
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+  const rows = lines.slice(1).map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+  return { headers, rows };
+}
+
+function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function BulkActionsPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleImport = async () => {
+  const handleFile = useCallback(async (file: File | undefined) => {
+    if (!file) return;
     setImporting(true);
     setResult(null);
-    // ponytail: CSV import via /api/medicines POST loop — replace with proper batch endpoint if volume grows
-    setTimeout(() => {
-      setImporting(false);
-      setResult({ success: 0, errors: ["CSV import — implement file parsing + batch POST"] });
-      toast.info("CSV import: wire up file picker + /api/medicines");
-    }, 1000);
-  };
+
+    try {
+      const text = await file.text();
+      const { headers, rows } = parseCSV(text);
+      if (headers.length === 0) {
+        toast.error("CSV must have a header row and at least one data row");
+        setImporting(false);
+        return;
+      }
+
+      const res = await fetch("/api/categories");
+      const cats = await res.json();
+      // ponytail: categories may be array or { categories } shape
+      const categoryList = Array.isArray(cats) ? cats : cats.categories ?? [];
+      const catMap = Object.fromEntries(categoryList.map((c: { name: string; id: string }) => [c.name.toLowerCase(), c.id]));
+
+      const successRows: string[][] = [];
+      const errors: string[] = [];
+
+      // ponytail: POST loop instead of batch endpoint — replace when volume justifies it
+      await Promise.allSettled(
+        rows.map(async (row, i) => {
+          const record = Object.fromEntries(headers.map((h, j) => [h, row[j] ?? ""]));
+          // ponytail: hardcoded gst 5%, purchasePrice = 80% of mrp, qty/batch/expiry skipped (inventory layer)
+          const catName = (record.category ?? "").toLowerCase();
+          const categoryId = catMap[catName];
+          if (!categoryId) {
+            errors.push(`Row ${i + 2}: unknown category "${record.category}"`);
+            return;
+          }
+
+          const body = {
+            name: record.name,
+            genericName: record.genericName || record.name,
+            categoryId,
+            mrp: parseFloat(record.mrp),
+            purchasePrice: parseFloat(record.purchasePrice || String(Math.round(parseFloat(record.mrp) * 0.8 * 100) / 100)),
+            sellingPrice: parseFloat(record.sellingPrice || record.mrp),
+            hsnCode: record.hsnCode,
+            reorderLevel: parseInt(record.reorderLevel) || 10,
+            reorderQuantity: parseInt(record.reorderQuantity) || 50,
+          };
+
+          const apiRes = await fetch("/api/medicines", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if (!apiRes.ok) {
+            const err = await apiRes.json();
+            errors.push(`Row ${i + 2}: ${err.error ?? apiRes.statusText}`);
+            return;
+          }
+
+          successRows.push(row);
+        })
+      );
+
+      const imported = successRows.length;
+      if (imported > 0) {
+        toast.success(`Imported ${imported} medicine${imported > 1 ? "s" : ""}`);
+      }
+      setResult({ success: imported, errors: errors.length === 0 ? [] : errors });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Import failed";
+      toast.error(msg);
+      setResult({ success: 0, errors: [msg] });
+    }
+
+    setImporting(false);
+  }, []);
+
+  const handleExport = useCallback(async (label: string) => {
+    try {
+      if (label === "Medicine Inventory") {
+        const res = await fetch("/api/medicines?limit=10000");
+        const data = await res.json();
+        const list = data.medicines ?? [];
+        downloadCSV("medicine-inventory.csv",
+          ["name", "genericName", "mrp", "sellingPrice", "category", "stock"],
+          list.map((m: { name: string; genericName: string; mrp: number; sellingPrice: number; category?: { name: string }; inventories?: { quantity: number }[] }) => [
+            m.name, m.genericName, String(m.mrp), String(m.sellingPrice),
+            m.category?.name ?? "", String(m.inventories?.[0]?.quantity ?? 0),
+          ])
+        );
+        toast.success("Exported medicine inventory");
+      } else {
+        toast.info("Export not wired — extend handleExport for this type");
+      }
+    } catch {
+      toast.error("Export failed");
+    }
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Bulk Actions</h1>
         <p className="text-gray-500">Import/export inventory data in bulk</p>
@@ -40,22 +147,45 @@ export default function BulkActionsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-gray-500">Upload a CSV file with medicine data to bulk-add or update inventory.</p>
-            <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-pharmacy-400 transition-colors cursor-pointer">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+            <div
+              className="border-2 border-dashed rounded-lg p-8 text-center hover:border-pharmacy-400 transition-colors cursor-pointer"
+              onClick={() => fileRef.current?.click()}
+            >
               <FileSpreadsheet className="w-12 h-12 mx-auto text-gray-300 mb-3" />
               <p className="text-sm font-medium">Drop CSV file here or click to browse</p>
               <p className="text-xs text-gray-500 mt-1">Supports .csv files up to 10MB</p>
             </div>
-            <Button className="w-full" disabled={importing} onClick={handleImport}>
+            <Button className="w-full" disabled={importing} onClick={() => fileRef.current?.click()}>
               {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-              Upload & Import
+              {importing ? "Importing..." : "Upload & Import"}
             </Button>
             <div className="text-xs text-gray-400 space-y-1">
               <p>Expected columns: name, genericName, category, mrp, sellingPrice, quantity, batchNumber, expiryDate</p>
-              <a href="#" className="text-pharmacy-500 hover:underline">Download sample CSV →</a>
+              <button
+                className="text-pharmacy-500 hover:underline"
+                onClick={() => downloadCSV("sample-import.csv",
+                  ["name", "genericName", "category", "mrp", "sellingPrice", "quantity", "batchNumber", "expiryDate"],
+                  [["Paracetamol 500mg", "Paracetamol", "Pain Management", "50.00", "45.00", "100", "BATCH001", "2026-12-31"]]
+                )}
+              >
+                Download sample CSV →
+              </button>
             </div>
+            {importing && (
+              <p className="text-sm text-gray-500">Processing rows, please wait...</p>
+            )}
             {result && (
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
-                <p className="font-medium text-amber-800">Import Notes</p>
+              <div className={`p-3 rounded-lg border text-sm ${result.errors.length > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                <p className={`font-medium ${result.errors.length > 0 ? "text-amber-800" : "text-green-800"}`}>
+                  Import complete: {result.success} imported{result.errors.length > 0 ? `, ${result.errors.length} errors` : ""}
+                </p>
                 {result.errors.map((e, i) => <p key={i} className="text-amber-600 text-xs mt-1">{e}</p>)}
               </div>
             )}
@@ -78,7 +208,11 @@ export default function BulkActionsPage() {
                 { label: "Patient Records", desc: "Registered patient information" },
                 { label: "Low Stock Report", desc: "Items below reorder level" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors cursor-pointer">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => handleExport(item.label)}
+                >
                   <div>
                     <p className="text-sm font-medium">{item.label}</p>
                     <p className="text-xs text-gray-500">{item.desc}</p>

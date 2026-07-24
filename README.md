@@ -1,72 +1,91 @@
-# 🏥 PharmacyPro - Complete Pharmacy Management System
+# 🏥 PharmacyPro - Pharmacy Management System
 
-A comprehensive, production-ready Pharmacy Management System built with **Next.js 15**, featuring all MVP, Phase 2, Phase 3, and Phase 4 features.
+A Pharmacy Management System built with **Next.js 15** (App Router), TypeScript, Prisma,
+and Tailwind/shadcn-ui.
+
+> ⚠️ **Status note (2026-07-19):** The core MVP is functional. Several features advertised
+> in earlier docs were placeholders and are **not yet implemented** — see
+> [Current Status](#-current-status) below. Detailed issue tracking lives in
+> [`docs/issues/`](docs/issues/README.md).
 
 ## credential
 
 Login: admin@pharmacypro.com / admin123
 
+Additional seeded users (password `admin123`): `manager@pharmacypro.com`,
+`pharmacist@pharmacypro.com`, `cashier@pharmacypro.com`.
+
 ## ✨ Features
 
-### MVP (Phase 1)
+### MVP (Phase 1) — ✅ Implemented
 
 - ✅ **Inventory Management** - Medicine CRUD, categories, suppliers, stock tracking
-- ✅ **Prescription Management** - Upload, manual entry, patient/doctor management
-- ✅ **Sales & Billing** - POS with GST calculation, multi-payment modes, invoicing
+- ⚠️ **Prescription Management** - Doctors/patients real; upload UI is a stub (no OCR yet); processing wired to API
+- ✅ **Sales & Billing** - POS with GST calculation, invoicing, returns
 - ✅ **Purchase Management** - Purchase orders, GRN, supplier payments
-- ✅ **User & Role Management** - RBAC (Owner, Manager, Pharmacist, Cashier)
-- ✅ **Reporting** - Sales, inventory, financial reports
-- ✅ **Security** - JWT auth, audit logs, input validation
+- ✅ **User & Role Management** - Users list real; role assignment now works (RBAC not yet enforced in API)
+- ✅ **Reporting (partial)** - Dashboard real; detailed Sales/Financial/Custom reports are stubbed
+- ✅ **Security** - JWT auth, audit logs (now readable), input validation
 
-### Phase 2 (Core Enhancements)
+### Phase 2 (Core Enhancements) — ⚠️ Partial
 
-- ✅ **Batch & Expiry Tracking** - Auto-alerts for near-expiry medicines
-- ✅ **Barcode/QR System** - Generate and scan barcodes
-- ✅ **Multi-Location Inventory** - Inter-branch stock transfers
-- ✅ **Auto-Reordering** - AI-based reorder suggestions
-- ✅ **OCR for Prescriptions** - Tesseract.js integration
+- ✅ **Batch & Expiry Tracking** - Schema + stock-alert page exist
+- ❌ **Barcode/QR System** - Declared, not wired
+- ⚠️ **Multi-Location Inventory** - Schema (StockTransfer) exists; no transfer UI
+- ❌ **Auto-Reordering** - Not implemented
+- ❌ **OCR for Prescriptions** - Not wired (Tesseract declared only)
 - ✅ **GST-Compliant Invoicing** - Auto-calculate GST (5%, 12%, 18%)
-- ✅ **Multi-Payment** - UPI, Card, Cash, Credit
-- ✅ **Loyalty Program** - Points system with tiered rewards
+- ⚠️ **Multi-Payment** - Cash/credit work; UPI/card have no gateway
+- ✅ **Loyalty Program** - Schema + tiers seeded
 
-### Phase 3 (Competitive Features)
+### Phase 3 (Competitive Features) — ❌ Not implemented (placeholder UI)
 
-- ✅ **Online Pharmacy** - E-commerce with product catalog, cart, checkout
-- ✅ **Delivery Management** - Pincode check, delivery slots, live tracking
-- ✅ **PWA** - Offline mode, mobile POS, push notifications
-- ✅ **Advanced Reports** - Custom reports, dashboard widgets, AI insights
-- ✅ **Integrations** - SMS/WhatsApp, GST API, Drug Database APIs
-- ✅ **Security 2FA** - Two-factor authentication
+- ❌ **Online Pharmacy** - Pages are hardcoded; no backend
+- ❌ **Delivery Management** - Hardcoded
+- ❌ **PWA** - No manifest/service worker
+- ❌ **Advanced Reports** - Custom report builder is a stub
+- ❌ **Integrations** - SMS/WhatsApp/GST/Drug APIs not wired
+- ❌ **Security 2FA** - Column exists; no enrollment/verify flow
 
-### Phase 4 (Advanced)
+### Phase 4 (Advanced) — ❌ Not implemented (placeholder UI)
 
-- ✅ **Telemedicine Integration** - Practo/e-Sanjeevani
-- ✅ **AI-Powered Features** - Demand forecasting, price optimization, fraud detection
-- ✅ **Subscription Model** - Monthly medicine subscriptions
-- ✅ **Multi-Language** - Hindi, Marathi, Gujarati, Tamil, Telugu, Bengali
-- ✅ **Delivery Agent App** - Route optimization
+- ❌ **Telemedicine Integration** - Hardcoded mockup, no model/backend
+- ❌ **AI-Powered Features** - Declared, unused
+- ⚠️ **Subscription Model** - Schema + seed exist; UI is fake SaaS pricing
+- ❌ **Multi-Language** - No i18n layer
+- ❌ **Delivery Agent App** - Not present
+
+## 📊 Current Status
+
+| Area | Status |
+|------|--------|
+| Dashboard, Inventory, POS/Sales, Purchases | ✅ Working |
+| Password auth, User management, Roles, Settings, Audit logs | ✅ Working (see docs/issues) |
+| Prescriptions (doctors/patients/processing) | ✅ Working |
+| Reports (detailed), Online Store, Subscriptions, Telemedicine, Analytics | ❌ Placeholder / TODO |
+| OCR, 2FA, Payments, AI, PWA, i18n, Barcode/QR | ❌ Declared but unwired |
 
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: PostgreSQL + Prisma ORM
-- **Auth**: NextAuth.js (JWT + OAuth + OTP)
+- **Database**: SQLite + Prisma ORM (README previously said PostgreSQL — actual deployment uses SQLite via `prisma/pharmacy.db`)
+- **Auth**: NextAuth.js (JWT + OAuth; OTP send/verify is stubbed)
 - **State**: Zustand + TanStack Query
-- **Charts**: Recharts
-- **OCR**: Tesseract.js
-- **Payments**: Razorpay + Stripe
-- **Cache**: Redis
-- **AI**: OpenAI API + Google Gemini
+- **Charts**: Recharts (declared, not yet used in reports)
+- **OCR**: Tesseract.js (declared, not wired)
+- **Payments**: Razorpay + Stripe (declared, not wired)
+- **Cache**: Redis (declared, not wired)
+- **AI**: OpenAI API + Google Gemini (declared, not wired)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
-- PostgreSQL 16+
-- Redis 7+
+
+> Note: The project runs on SQLite out of the box — no PostgreSQL/Redis required for local dev.
 
 ### Installation
 

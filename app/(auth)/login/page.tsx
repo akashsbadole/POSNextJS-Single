@@ -60,8 +60,8 @@ export default function LoginPage() {
     }, 1000);
   };
 
-  const handleOTPLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOTPLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setIsLoading(true);
     // TODO: Verify OTP and login
     setTimeout(() => {
@@ -110,10 +110,11 @@ export default function LoginPage() {
             {loginMethod === "password" ? (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email</label>
+                  <label htmlFor="email" className="text-sm font-medium">Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
+                      id="email"
                       type="email"
                       placeholder="admin@pharmacy.com"
                       className="pl-10"
@@ -124,10 +125,11 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Password</label>
+                  <label htmlFor="password" className="text-sm font-medium">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
+                      id="password"
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
@@ -145,10 +147,11 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={handleOTPLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Phone Number</label>
+                  <label htmlFor="phone" className="text-sm font-medium">Phone Number</label>
                   <div className="relative">
                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
+                      id="phone"
                       type="tel"
                       placeholder="9876543210"
                       className="pl-10"
@@ -167,13 +170,15 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Enter OTP</label>
+                      <label htmlFor="otp" className="text-sm font-medium">Enter OTP</label>
                       <Input
+                        id="otp"
                         type="text"
                         placeholder="123456"
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
                         maxLength={6}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleOTPLogin(); }}
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading}>

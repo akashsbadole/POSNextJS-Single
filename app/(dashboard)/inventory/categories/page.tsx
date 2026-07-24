@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SearchInput } from "@/components/ui/search-input";
 import {
-  Search,
   Plus,
   Edit,
   Trash2,
@@ -43,7 +42,7 @@ export default function CategoriesPage() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Categories</h1>
@@ -57,15 +56,12 @@ export default function CategoriesPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search categories..."
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            searchValue={search}
+            onSearch={(value) => setSearch(value)}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search categories..."
+          />
         </CardContent>
       </Card>
 
@@ -107,10 +103,10 @@ export default function CategoriesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="w-8 h-8">
+                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500">
+                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" aria-label="Delete">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

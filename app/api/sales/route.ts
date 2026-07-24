@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber, calculateGST } from "@/lib/utils";
+import { pickBatchFEFO } from "@/lib/inventory";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +11,9 @@ export async function POST(req: NextRequest) {
     let subtotal = 0;
     let totalCGST = 0;
     let totalSGST = 0;
-    const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; cgstAmount: number; sgstAmount: number; totalAmount: number }[] = [];
+    const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; cgstAmount: number; sgstAmount: number; totalAmount: number; batchNumber?: string }[] = [];
+
+    const scheduleHMeds: string[] = [];
 
     for (const item of items) {
       const medicine = await prisma.medicine.findUnique({
@@ -24,13 +27,26 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const inventory = await prisma.inventory.findUnique({
-        where: { medicineId_branchId: { medicineId: item.medicineId, branchId } },
-      });
+      if (medicine.scheduleType === "H" || medicine.scheduleType === "H1") {
+        scheduleHMeds.push(medicine.name);
+      }
 
-      if (!inventory || inventory.quantity < item.quantity) {
+      try {
+        const picks = await pickBatchFEFO(item.medicineId, branchId, item.quantity);
+        saleItemsData.push({
+          medicineId: item.medicineId,
+          quantity: item.quantity,
+          unitPrice: medicine.sellingPrice,
+          mrp: medicine.mrp,
+          gstRate: medicine.gstRate,
+          batchNumber: picks[0]?.batchNumber,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          totalAmount: 0,
+        });
+      } catch (e) {
         return NextResponse.json(
-          { error: `Insufficient stock for ${medicine.name}. Available: ${inventory?.quantity || 0}, requested: ${item.quantity}` },
+          { error: e instanceof Error ? e.message : "Insufficient stock" },
           { status: 400 }
         );
       }
@@ -42,16 +58,16 @@ export async function POST(req: NextRequest) {
       totalCGST += gst.cgst;
       totalSGST += gst.sgst;
 
-      saleItemsData.push({
-        medicineId: item.medicineId,
-        quantity: item.quantity,
-        unitPrice: medicine.sellingPrice,
-        mrp: medicine.mrp,
-        gstRate: medicine.gstRate,
-        cgstAmount: gst.cgst,
-        sgstAmount: gst.sgst,
-        totalAmount: itemTotal + gst.total,
-      });
+      saleItemsData[saleItemsData.length - 1].cgstAmount = gst.cgst;
+      saleItemsData[saleItemsData.length - 1].sgstAmount = gst.sgst;
+      saleItemsData[saleItemsData.length - 1].totalAmount = itemTotal + gst.total;
+    }
+
+    if (scheduleHMeds.length > 0 && !prescriptionId) {
+      return NextResponse.json(
+        { error: `Prescription required for Schedule H/H1 medicines: ${scheduleHMeds.join(", ")}` },
+        { status: 422 }
+      );
     }
 
     let discountAmount = 0;
@@ -114,6 +130,26 @@ export async function POST(req: NextRequest) {
           where: { medicineId_branchId: { medicineId: item.medicineId, branchId } },
           data: { quantity: { decrement: item.quantity } },
         });
+
+        const batches = await tx.batch.findMany({
+          where: {
+            medicineId: item.medicineId,
+            inventory: { branchId },
+            expiryDate: { gt: new Date() },
+          },
+          orderBy: { expiryDate: "asc" },
+        });
+
+        let remainingQty = item.quantity;
+        for (const batch of batches) {
+          if (remainingQty <= 0) break;
+          const decrement = Math.min(batch.quantity, remainingQty);
+          await tx.batch.update({
+            where: { id: batch.id },
+            data: { quantity: { decrement } },
+          });
+          remainingQty -= decrement;
+        }
       }
 
       await tx.auditLog.create({
@@ -147,7 +183,7 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (startDate && endDate) {
       where.createdAt = {

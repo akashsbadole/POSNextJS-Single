@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Save, Building2, Globe, Bell, Shield, Languages } from "lucide-react";
 import { toast } from "sonner";
 
+type SettingsMap = Record<string, string>;
+
 export default function SettingsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [settings, setSettings] = useState<SettingsMap>({});
 
   const sections = [
     { id: "general", label: "General", icon: Building2 },
@@ -20,14 +26,77 @@ export default function SettingsPage() {
     { id: "languages", label: "Languages", icon: Languages },
   ];
 
-  const handleSave = () => {
-    setLoading(true);
-    // ponytail: persist to /api/settings when endpoint is built
-    setTimeout(() => { setLoading(false); toast.success("Settings saved"); }, 800);
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const map: SettingsMap = {};
+        (d.settings || []).forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
+        setSettings(map);
+      })
+      .catch(() => toast.error("Failed to load settings"))
+      .finally(() => setInitialLoading(false));
+  }, []);
+
+  const set = (key: string, value: string) => setSettings((prev) => ({ ...prev, [key]: value }));
+
+  const saveKey = async (key: string, value: string, category = "GENERAL") => {
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value, category }),
+    });
   };
 
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const keys: [string, string, string][] = [
+        ["store_name", settings.store_name ?? "PharmacyPro", "GENERAL"],
+        ["gst_number", settings.gst_number ?? "", "TAX"],
+        ["license_number", settings.license_number ?? "", "GENERAL"],
+        ["phone", settings.phone ?? "", "GENERAL"],
+        ["address", settings.address ?? "", "GENERAL"],
+        ["currency", settings.currency ?? "INR", "GENERAL"],
+        ["timezone", settings.timezone ?? "Asia/Kolkata", "GENERAL"],
+        ["date_format", settings.date_format ?? "DD/MM/YYYY", "GENERAL"],
+        ["password_policy", settings.password_policy ?? "Min 8 chars", "SECURITY"],
+        ["session_timeout", settings.session_timeout ?? "30 minutes", "SECURITY"],
+        ["max_login_attempts", settings.max_login_attempts ?? "5", "SECURITY"],
+        ["twofa_enforcement", settings.twofa_enforcement ?? "Optional", "SECURITY"],
+      ];
+      await Promise.all(keys.map(([k, v, c]) => saveKey(k, v, c)));
+      toast.success("Settings saved");
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rerunOnboarding = async () => {
+    try {
+      await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      router.replace("/onboarding");
+    } catch {
+      toast.error("Failed to reset onboarding");
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-pharmacy-500" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Settings</h1>
@@ -52,13 +121,20 @@ export default function SettingsPage() {
           <Card>
             <CardHeader><CardTitle>Pharmacy Information</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-sm font-medium">Pharmacy Name</label><Input defaultValue="PharmacyPro" /></div>
-                <div><label className="text-sm font-medium">GSTIN</label><Input defaultValue="22AAAAA0000A1Z5" /></div>
-                <div><label className="text-sm font-medium">License Number</label><Input defaultValue="DL-2024-001234" /></div>
-                <div><label className="text-sm font-medium">Phone</label><Input defaultValue="+91 9876543210" /></div>
-                <div className="col-span-2"><label className="text-sm font-medium">Address</label><Input defaultValue="123, Pharma Street, New Delhi" /></div>
-              </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div><label htmlFor="store_name" className="text-sm font-medium">Pharmacy Name</label><Input id="store_name" value={settings.store_name ?? ""} onChange={(e) => set("store_name", e.target.value)} /></div>
+                 <div><label htmlFor="gst_number" className="text-sm font-medium">GSTIN</label><Input id="gst_number" value={settings.gst_number ?? ""} onChange={(e) => set("gst_number", e.target.value)} /></div>
+                 <div><label htmlFor="license_number" className="text-sm font-medium">License Number</label><Input id="license_number" value={settings.license_number ?? ""} onChange={(e) => set("license_number", e.target.value)} /></div>
+                 <div><label htmlFor="phone" className="text-sm font-medium">Phone</label><Input id="phone" value={settings.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></div>
+                 <div className="col-span-2"><label htmlFor="address" className="text-sm font-medium">Address</label><Input id="address" value={settings.address ?? ""} onChange={(e) => set("address", e.target.value)} /></div>
+               </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Setup</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-500 mb-3">Restart the onboarding wizard to update your pharmacy info.</p>
+              <Button variant="outline" onClick={rerunOnboarding}>Re-run Onboarding</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -84,12 +160,12 @@ export default function SettingsPage() {
           <Card>
             <CardHeader><CardTitle>Localization</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-sm font-medium">Currency</label><Input defaultValue="INR (₹)" /></div>
-                <div><label className="text-sm font-medium">Timezone</label><Input defaultValue="Asia/Kolkata" /></div>
-                <div><label className="text-sm font-medium">Date Format</label><Input defaultValue="DD/MM/YYYY" /></div>
-                <div><label className="text-sm font-medium">Number Format</label><Input defaultValue="1,23,456.78" /></div>
-              </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div><label htmlFor="currency" className="text-sm font-medium">Currency</label><Input id="currency" value={settings.currency ?? ""} onChange={(e) => set("currency", e.target.value)} /></div>
+                 <div><label htmlFor="timezone" className="text-sm font-medium">Timezone</label><Input id="timezone" value={settings.timezone ?? ""} onChange={(e) => set("timezone", e.target.value)} /></div>
+                 <div><label htmlFor="date_format" className="text-sm font-medium">Date Format</label><Input id="date_format" value={settings.date_format ?? ""} onChange={(e) => set("date_format", e.target.value)} /></div>
+                 <div><label htmlFor="number_format" className="text-sm font-medium">Number Format</label><Input id="number_format" value={settings.number_format ?? "1,23,456.78"} onChange={(e) => set("number_format", e.target.value)} /></div>
+               </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -98,12 +174,12 @@ export default function SettingsPage() {
           <Card>
             <CardHeader><CardTitle>Security Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-sm font-medium">Password Policy</label><Input defaultValue="Min 8 chars, 1 uppercase, 1 number" /></div>
-                <div><label className="text-sm font-medium">Session Timeout</label><Input defaultValue="30 minutes" /></div>
-                <div><label className="text-sm font-medium">Max Login Attempts</label><Input defaultValue="5" /></div>
-                <div><label className="text-sm font-medium">2FA Enforcement</label><Input defaultValue="Optional" /></div>
-              </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div><label htmlFor="password_policy" className="text-sm font-medium">Password Policy</label><Input id="password_policy" value={settings.password_policy ?? ""} onChange={(e) => set("password_policy", e.target.value)} /></div>
+                 <div><label htmlFor="session_timeout" className="text-sm font-medium">Session Timeout</label><Input id="session_timeout" value={settings.session_timeout ?? ""} onChange={(e) => set("session_timeout", e.target.value)} /></div>
+                 <div><label htmlFor="max_login_attempts" className="text-sm font-medium">Max Login Attempts</label><Input id="max_login_attempts" value={settings.max_login_attempts ?? ""} onChange={(e) => set("max_login_attempts", e.target.value)} /></div>
+                 <div><label htmlFor="twofa_enforcement" className="text-sm font-medium">2FA Enforcement</label><Input id="twofa_enforcement" value={settings.twofa_enforcement ?? ""} onChange={(e) => set("twofa_enforcement", e.target.value)} /></div>
+               </div>
             </CardContent>
           </Card>
         </TabsContent>

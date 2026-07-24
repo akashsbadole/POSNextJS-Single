@@ -19,20 +19,19 @@ interface GRN {
 export default function GRNPage() {
   const [grns, setGrns] = useState<GRN[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [page] = useState(1);
 
   useEffect(() => {
     setLoading(true);
     fetch(`/api/purchases?page=${page}&limit=20&status=RECEIVED`)
       .then((r) => r.json())
-      .then((d) => { setGrns(d.orders || []); setTotalPages(d.pagination?.totalPages || 1); })
+      .then((d) => { setGrns(d.orders || []); })
       .catch(() => toast.error("Failed to load GRNs"))
       .finally(() => setLoading(false));
   }, [page]);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Goods Received Notes</h1>

@@ -5,21 +5,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Calendar, BarChart3, Download, Plus, X, Loader2 } from "lucide-react";
+import { BarChart3, Download, Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
-type Filter = { field: string; operator: string; value: string };
-
 export default function CustomReportsPage() {
-  const [filters, setFilters] = useState<Filter[]>([]);
+  const [reportType, setReportType] = useState("sales");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ kpis?: Record<string, number>; trend?: { month: string; sales: number; orders: number }[]; data?: unknown } | null>(null);
 
-  const addFilter = () => setFilters([...filters, { field: "date", operator: "between", value: "" }]);
-  const removeFilter = (i: number) => setFilters(filters.filter((_, idx) => idx !== i));
-
-  const generate = () => {
+  const generate = async () => {
     setLoading(true);
-    setTimeout(() => { setLoading(false); toast.success("Report generated — implement query builder"); }, 1000);
+    try {
+      const qs = new URLSearchParams();
+      if (startDate) qs.set("startDate", new Date(startDate).toISOString());
+      if (endDate) qs.set("endDate", new Date(endDate + "T23:59:59").toISOString());
+      const res = await fetch(`/api/reports?${qs.toString()}`);
+      const d = await res.json();
+      if (res.ok) {
+        setResult(d);
+        toast.success("Report generated");
+      } else {
+        toast.error("Failed to generate report");
+      }
+    } catch {
+      toast.error("Failed to generate report");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,7 +41,7 @@ export default function CustomReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Custom Reports</h1>
-          <p className="text-gray-500">Build custom reports with filters</p>
+          <p className="text-gray-500">Build reports filtered by date range</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export</Button>
@@ -41,47 +55,26 @@ export default function CustomReportsPage() {
       <Card>
         <CardHeader><CardTitle>Report Filters</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4 items-end">
+          <div className="flex gap-4 items-end flex-wrap">
             <div>
               <label className="text-sm font-medium">Report Type</label>
-              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-48 mt-1">
-                <option>Sales Report</option>
-                <option>Inventory Report</option>
-                <option>Patient Report</option>
-                <option>Financial Report</option>
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-48 mt-1"
+              >
+                <option value="sales">Sales Report</option>
+                <option value="financial">Financial Report</option>
               </select>
             </div>
             <div>
               <label className="text-sm font-medium">Date Range</label>
               <div className="flex gap-2 mt-1">
-                <Input type="date" className="w-36" />
+                <Input type="date" className="w-36" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 <span className="self-center text-gray-400">to</span>
-                <Input type="date" className="w-36" />
+                <Input type="date" className="w-36" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Additional Filters</label>
-              <Button variant="outline" size="sm" onClick={addFilter}>
-                <Plus className="w-4 h-4 mr-1" />Add Filter
-              </Button>
-            </div>
-            {filters.map((f, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm flex-1">
-                  <option>Date</option><option>Amount</option><option>Category</option><option>Payment Mode</option>
-                </select>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-32">
-                  <option>equals</option><option>contains</option><option>greater than</option><option>less than</option><option>between</option>
-                </select>
-                <Input placeholder="Value" className="flex-1" />
-                <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" onClick={() => removeFilter(i)}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>
@@ -89,10 +82,51 @@ export default function CustomReportsPage() {
       <Card>
         <CardHeader><CardTitle>Preview</CardTitle></CardHeader>
         <CardContent>
-          <div className="text-center py-12 text-gray-500">
-            <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Apply filters and generate to see results</p>
-          </div>
+          {!result ? (
+            <div className="text-center py-12 text-gray-500">
+              <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>Apply filters and generate to see results</p>
+            </div>
+          ) : (
+    <div className="p-4 sm:p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Revenue</p>
+                  <p className="text-xl font-bold">₹{(result.kpis?.totalRevenue || 0).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Orders</p>
+                  <p className="text-xl font-bold">{result.kpis?.totalOrders || 0}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">GST</p>
+                  <p className="text-xl font-bold">₹{(result.kpis?.totalGST || 0).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Avg Order</p>
+                  <p className="text-xl font-bold">₹{(result.kpis?.avgOrderValue || 0).toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-pharmacy-500" />
+                  <span className="font-medium">Monthly trend</span>
+                </div>
+                {result.trend?.length === 0 ? (
+                  <p className="text-sm text-gray-500">No data in range</p>
+                ) : (
+                  <div className="flex gap-3 flex-wrap">
+                    {result.trend!.map((t) => (
+                      <Badge key={t.month} variant="outline">
+                        {t.month}: ₹{t.sales.toLocaleString("en-IN")} ({t.orders})
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

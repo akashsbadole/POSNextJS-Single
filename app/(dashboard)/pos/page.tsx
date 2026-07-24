@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { SearchInput } from "@/components/ui/search-input";
 import {
-  Search,
   Plus,
   Minus,
   Trash2,
@@ -148,8 +148,8 @@ export default function POSPage() {
       setCart([]);
       setDiscountType("none");
       setDiscountValue(0);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Sale failed");
     } finally {
       setSubmitting(false);
     }
@@ -158,25 +158,24 @@ export default function POSPage() {
   return (
     <div className="h-[calc(100vh-4rem)] flex">
       <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-gray-700">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search medicines..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Button variant="outline" size="icon">
-              <Barcode className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon">
-              <User className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+           <div className="flex items-center gap-4">
+             <div className="flex-1">
+               <SearchInput
+                 searchValue={searchQuery}
+                 onSearch={(value) => setSearchQuery(value)}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 placeholder="Search medicines..."
+               />
+             </div>
+             <Button variant="outline" size="icon" aria-label="Scan barcode">
+               <Barcode className="w-4 h-4" />
+             </Button>
+             <Button variant="outline" size="icon" aria-label="User">
+               <User className="w-4 h-4" />
+             </Button>
+           </div>
+         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
@@ -202,9 +201,9 @@ export default function POSPage() {
                     <p className="text-xs text-gray-500">{med.genericName}</p>
                     <div className="flex items-center justify-between mt-3">
                       <span className="font-bold text-pharmacy-600">₹{med.sellingPrice.toFixed(2)}</span>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="Add">
+                         <Plus className="w-4 h-4" />
+                       </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -217,13 +216,13 @@ export default function POSPage() {
       <div className="w-[420px] flex flex-col bg-white dark:bg-gray-800">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              <h2 className="font-semibold">Cart ({cart.length} items)</h2>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setCart([])}>
-              <X className="w-4 h-4" />
-            </Button>
+             <div className="flex items-center gap-2">
+               <ShoppingCart className="w-5 h-5" />
+               <h2 className="font-semibold">Cart ({cart.length} items)</h2>
+             </div>
+             <Button variant="ghost" size="sm" onClick={() => setCart([])} aria-label="Clear cart">
+               <X className="w-4 h-4" />
+             </Button>
           </div>
         </div>
 
@@ -242,18 +241,18 @@ export default function POSPage() {
                   <p className="text-xs text-gray-500">Batch: {item.batch}</p>
                   <p className="text-xs text-gray-500">₹{item.price.toFixed(2)} × {item.quantity}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)}>
-                    <Minus className="w-3 h-3" />
-                  </Button>
-                  <span className="w-8 text-center font-medium">{item.quantity}</span>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)}>
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => removeFromCart(item.id)}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
+                 <div className="flex items-center gap-2">
+                   <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)} aria-label="Decrease quantity">
+                     <Minus className="w-3 h-3" />
+                   </Button>
+                   <span className="w-8 text-center font-medium">{item.quantity}</span>
+                   <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)} aria-label="Increase quantity">
+                     <Plus className="w-3 h-3" />
+                   </Button>
+                   <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => removeFromCart(item.id)} aria-label="Delete">
+                     <Trash2 className="w-3 h-3" />
+                   </Button>
+                 </div>
               </div>
             ))
           )}
@@ -261,12 +260,13 @@ export default function POSPage() {
 
         <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Discount</label>
+            <label htmlFor="discount-type" className="text-sm font-medium">Discount</label>
             <div className="flex gap-2">
               <select
+                id="discount-type"
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={discountType}
-                onChange={(e) => setDiscountType(e.target.value as any)}
+                onChange={(e) => setDiscountType(e.target.value as "none" | "percentage" | "flat")}
               >
                 <option value="none">None</option>
                 <option value="percentage">%</option>
@@ -274,6 +274,7 @@ export default function POSPage() {
               </select>
               {discountType !== "none" && (
                 <Input
+                  id="discount-value"
                   type="number"
                   placeholder="Value"
                   className="w-24"
@@ -298,7 +299,7 @@ export default function POSPage() {
                   variant={paymentMode === mode.id ? "default" : "outline"}
                   size="sm"
                   className="flex-col h-16 gap-1"
-                  onClick={() => setPaymentMode(mode.id as any)}
+                  onClick={() => setPaymentMode(mode.id as "cash" | "card" | "upi" | "credit")}
                 >
                   <mode.icon className="w-4 h-4" />
                   <span className="text-xs">{mode.label}</span>

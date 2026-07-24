@@ -8,13 +8,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/pharmacy_db
+      - DATABASE_URL=file:./prarmacy.db
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=your-secret-key-change-in-production
-      - REDIS_URL=redis://redis:6379
     depends_on:
       - db
-      - redis
     volumes:
       - .:/app
       - /app/node_modules
@@ -30,11 +28,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
 
 volumes:
   postgres_data:

@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SearchInput } from "@/components/ui/search-input";
 import {
-  Search,
   AlertTriangle,
   Loader2,
   Package,
@@ -55,7 +54,7 @@ export default function StockAlertsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Stock Alerts</h1>
@@ -69,15 +68,12 @@ export default function StockAlertsPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search medicines..."
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            searchValue={search}
+            onSearch={(value) => setSearch(value)}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search medicines..."
+          />
         </CardContent>
       </Card>
 

@@ -16,8 +16,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (form.password !== form.confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -39,8 +39,8 @@ export default function RegisterPage() {
       }
       toast.success("Account created! Please sign in.");
       router.push("/login");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -65,41 +65,41 @@ export default function RegisterPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Full Name</label>
+                <label htmlFor="name" className="text-sm font-medium">Full Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input className="pl-10" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                  <Input id="name" className="pl-10" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
+                <label htmlFor="email" className="text-sm font-medium">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input type="email" className="pl-10" placeholder="john@pharmacy.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                  <Input id="email" type="email" className="pl-10" placeholder="john@pharmacy.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Phone</label>
+                <label htmlFor="phone" className="text-sm font-medium">Phone</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input type="tel" className="pl-10" placeholder="9876543210" maxLength={10} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Input id="phone" type="tel" className="pl-10" placeholder="9876543210" maxLength={10} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Password</label>
+                <label htmlFor="password" className="text-sm font-medium">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input type={showPassword ? "text" : "password"} className="pl-10 pr-10" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                  <Input id="password" type={showPassword ? "text" : "password"} className="pl-10 pr-10" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
                   <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                    {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" aria-label="Hide password" /> : <Eye className="w-4 h-4 text-gray-400" aria-label="Show password" />}
                   </button>
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Confirm Password</label>
+                <label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input type="password" className="pl-10" placeholder="••••••••" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required />
+                  <Input id="confirmPassword" type="password" className="pl-10" placeholder="••••••••" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }} required />
                 </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>

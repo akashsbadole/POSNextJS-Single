@@ -59,7 +59,7 @@ export default function DashboardPage() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Welcome back, {session?.user?.name || "Admin"}!

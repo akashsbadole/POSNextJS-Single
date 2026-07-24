@@ -77,10 +77,10 @@ export default function OTPVerifyPage() {
             {step === "phone" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Phone Number</label>
+                  <label htmlFor="phone" className="text-sm font-medium">Phone Number</label>
                   <div className="relative">
                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input type="tel" className="pl-10" placeholder="9876543210" maxLength={10} value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    <Input id="phone" type="tel" className="pl-10" placeholder="9876543210" maxLength={10} value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
                 </div>
                 <Button className="w-full" disabled={loading} onClick={handleSendOTP}>
@@ -105,6 +105,9 @@ export default function OTPVerifyPage() {
                         if (e.key === "Backspace" && !digit && i > 0) {
                           const prev = document.getElementById(`otp-${i - 1}`);
                           prev?.focus();
+                        }
+                        if (e.key === "Enter" && i === 5) {
+                          handleVerify();
                         }
                       }}
                     />

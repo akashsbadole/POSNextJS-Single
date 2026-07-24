@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (branchId) where.branchId = branchId;
     if (lowStock) {
       where.quantity = { lte: 10 };
