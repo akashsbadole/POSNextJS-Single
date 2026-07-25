@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const entityType = searchParams.get("entityType");
@@ -26,6 +29,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { entityType, entityId, values } = body;

@@ -28,8 +28,8 @@ export default function ForgotPasswordPage() {
       }
       setSent(true);
       toast.success("Reset link sent to your email");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const id = (await params).id;
     const field = await prisma.customFieldDefinition.findUnique({ where: { id } });
@@ -13,6 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const id = (await params).id;
     const body = await req.json();
@@ -37,6 +42,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const id = (await params).id;
     await prisma.customFieldDefinition.delete({ where: { id } });

@@ -66,7 +66,7 @@ export default function PurchaseOrdersPage() {
   const removeItem = (i: number) => items.length > 1 && setItems(items.filter((_, idx) => idx !== i));
   const updateItem = (i: number, field: string, value: string | number) => {
     const next = [...items];
-    (next[i] as any)[field] = value;
+    (next[i] as Record<string, unknown>)[field] = value;
     if (field === "medicineId") {
       const med = medicines.find((m) => m.id === value);
       if (med) { next[i].unitPrice = med.purchasePrice; next[i].gstRate = med.gstRate; }
@@ -87,7 +87,7 @@ export default function PurchaseOrdersPage() {
     const subtotal = calcSubtotal();
     const totalGst = calcGst();
     const totalAmount = subtotal + totalGst;
-    const user = session?.user as any;
+    const user = session?.user as { id?: string; branchId?: string };
     try {
       const res = await fetch("/api/purchases", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -105,7 +105,7 @@ export default function PurchaseOrdersPage() {
       setItems([{ medicineId: "", quantity: 1, unitPrice: 0, gstRate: 5 }]);
       setSupplierId(""); setExpectedDeliveryDate(""); setNotes("");
       setPage(1);
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong"); }
     finally { setSaving(false); }
   };
 

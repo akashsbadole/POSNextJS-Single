@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,14 +32,20 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password }),
+        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password, role: "OWNER" }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Registration failed");
       }
-      toast.success("Account created! Let's set up your business.");
-      router.push("/onboarding");
+      const result = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
+      if (result?.error) {
+        toast.success("Account created! Please sign in.");
+        router.push("/login");
+        return;
+      }
+      toast.success("Account created! Welcome to PharmacyPro.");
+      router.push("/dashboard");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {

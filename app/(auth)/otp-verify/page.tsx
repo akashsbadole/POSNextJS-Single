@@ -33,8 +33,8 @@ export default function OTPVerifyPage() {
       }
       setStep("otp");
       toast.success("OTP sent to " + phone);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -59,8 +59,8 @@ export default function OTPVerifyPage() {
       }
       toast.success("Verified successfully!");
       router.push("/login");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }

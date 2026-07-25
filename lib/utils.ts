@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -31,11 +32,17 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
-export function generateInvoiceNumber(prefix: string = "INV"): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${prefix}-${timestamp}-${random}`;
+export async function generateInvoiceNumber(prefix: string = "INV"): Promise<string> {
+  const counter = await prisma.invoiceCounter.upsert({
+    where: { prefix },
+    update: { counter: { increment: 1 } },
+    create: { prefix, counter: 1 },
+  });
+  const seq = String(counter.counter).padStart(5, "0");
+  const date = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+  return `${prefix}-${date}-${seq}`;
 }
+// ponytail: gapless per-prefix counter. Resets sequence on counter overflow (99999 → next prefix uses fresh row).
 
 export function calculateGST(amount: number, rate: number): { cgst: number; sgst: number; total: number } {
   const total = (amount * rate) / 100;

@@ -5,6 +5,8 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { verifyOTPToken } from "@/lib/otp-token";
+import { checkLogin } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -37,6 +39,8 @@ export const authOptions: NextAuthOptions = {
         try {
           const { email, password } = credentialsSchema.parse(credentials);
 
+          if (!await checkLogin(email)) return null;
+
           const user = await prisma.user.findUnique({
             where: { email },
           });
@@ -45,10 +49,11 @@ export const authOptions: NextAuthOptions = {
           if (user.status === "SUSPENDED") return null;
           if (user.status === "INACTIVE") return null;
 
-          // Allow OTP-based login: password is "__otp__" and user can exist without a password
-          if (password === "__otp__") {
-            // If user has both phone and password, OTP is still valid (they can use either method)
-            // If user has no password at all, this is the only way in
+          // OTP token login: password starts with "__otp__:" followed by JWT
+          if (password.startsWith("__otp__:")) {
+            const token = password.slice(8);
+            const payload = await verifyOTPToken(token);
+            if (!payload || payload.email !== email) return null;
           } else {
             if (!user.password) return null;
             const isValid = await bcrypt.compare(password, user.password);

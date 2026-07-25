@@ -74,7 +74,7 @@ export default function ProcessPage() {
   const removeItem = (i: number) => items.length > 1 && setItems(items.filter((_, idx) => idx !== i));
   const updateItem = (i: number, field: string, value: string | number) => {
     const next = [...items];
-    (next[i] as any)[field] = value;
+    (next[i] as Record<string, unknown>)[field] = value;
     setItems(next);
   };
 
@@ -82,7 +82,7 @@ export default function ProcessPage() {
     if (!form.patientId) { toast.error("Patient is required"); return; }
     if (!items[0]?.medicineName) { toast.error("At least one medicine item required"); return; }
     setSaving(true);
-    const createdById = (session?.user as any)?.id || "";
+    const createdById = (session?.user as { id?: string })?.id || "";
     try {
       const res = await fetch("/api/prescriptions", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -94,7 +94,7 @@ export default function ProcessPage() {
       setItems([{ medicineName: "", dosage: "", frequency: "", duration: "", quantity: 0, instructions: "" }]);
       setForm({ patientId: "", doctorId: "" });
       load();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong"); }
     finally { setSaving(false); }
   };
 

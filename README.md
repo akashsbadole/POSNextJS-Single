@@ -8,12 +8,14 @@ and Tailwind/shadcn-ui.
 > [Current Status](#-current-status) below. Detailed issue tracking lives in
 > [`docs/issues/`](docs/issues/README.md).
 
-## credential
+## Demo Credentials
 
-Login: admin@pharmacypro.com / admin123
-
-Additional seeded users (password `admin123`): `manager@pharmacypro.com`,
-`pharmacist@pharmacypro.com`, `cashier@pharmacypro.com`.
+| Role | Email | Password |
+|------|-------|----------|
+| Owner | admin@pharmacypro.com | admin123 |
+| Manager | manager@pharmacypro.com | admin123 |
+| Pharmacist | pharmacist@pharmacypro.com | admin123 |
+| Cashier | cashier@pharmacypro.com | admin123 |
 
 ## ✨ Features
 
@@ -158,11 +160,6 @@ pharmacy-management-system/
 ├── public/               # Static assets
 └── docker/               # Docker configurations
 ```
-
-## 🔐 Default Credentials
-
-- **Email**: admin@pharmacypro.com
-- **Password**: admin123
 
 ## 📄 License
 

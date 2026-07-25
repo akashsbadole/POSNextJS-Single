@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  BarChart3, TrendingUp, Package, DollarSign, Download, Calendar,
+  BarChart3, TrendingUp, Package, DollarSign, Download,
   Filter, PieChart, Activity, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";

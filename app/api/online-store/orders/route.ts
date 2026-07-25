@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -36,6 +39,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { customerId, items, shippingAddress, shippingCity, shippingState, shippingPincode, paymentMode } = body;
@@ -53,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const order = await prisma.onlineOrder.create({
       data: {
-        orderNumber: generateInvoiceNumber("ORD"),
+        orderNumber: await generateInvoiceNumber("ORD"),
         customerId,
         shippingAddress: shippingAddress || "",
         shippingCity: shippingCity || "",
@@ -84,6 +89,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { id, status } = body;

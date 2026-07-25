@@ -118,10 +118,10 @@ export default function BulkActionsPage() {
       if (label === "Medicine Inventory") {
         downloadCSV(filename,
           ["name", "genericName", "brand", "mrp", "sellingPrice", "category", "stock", "reorderLevel"],
-          list.map((m: any) => [
+          list.map((m: Record<string, unknown>) => [
             m.name, m.genericName, m.brandName || "",
             String(m.mrp), String(m.sellingPrice),
-            m.category?.name ?? "", String(m.inventories?.[0]?.quantity ?? 0),
+            (m.category as Record<string, unknown>)?.name ?? "", String((m.inventories as Record<string, unknown>[])?.[0]?.quantity ?? 0),
             String(m.reorderLevel || 10),
           ])
         );
@@ -130,25 +130,25 @@ export default function BulkActionsPage() {
         const catData = await catRes.json();
         const cats = catData.categories ?? catData ?? [];
         downloadCSV(filename, ["name", "description", "parent"],
-          cats.map((c: any) => [c.name, c.description || "", c.parent?.name || ""])
+          cats.map((c: Record<string, unknown>) => [c.name, c.description || "", (c.parent as Record<string, unknown>)?.name || ""])
         );
       } else if (label === "Supplier") {
         const supRes = await fetch("/api/suppliers");
         const supData = await supRes.json();
         const sups = supData.suppliers ?? supData ?? [];
         downloadCSV(filename, ["name", "contact", "phone", "email", "gstin"],
-          sups.map((s: any) => [s.name, s.contactPerson || "", s.phone || "", s.email || "", s.gstin || ""])
+          sups.map((s: Record<string, unknown>) => [s.name, s.contactPerson || "", s.phone || "", s.email || "", s.gstin || ""])
         );
       } else if (label === "Patient") {
         const patRes = await fetch("/api/patients");
         const patData = await patRes.json();
         const pats = patData.patients ?? patData ?? [];
         downloadCSV(filename, ["name", "phone", "email", "gender", "age"],
-          pats.map((p: any) => [p.name, p.phone || "", p.email || "", p.gender || "", String(p.age || "")])
+          pats.map((p: Record<string, unknown>) => [p.name, p.phone || "", p.email || "", p.gender || "", String(p.age || "")])
         );
       } else {
         downloadCSV(filename, ["name", "genericName", "mrp", "sellingPrice"],
-          list.map((m: any) => [m.name, m.genericName, String(m.mrp), String(m.sellingPrice)])
+          list.map((m: Record<string, unknown>) => [m.name, m.genericName, String(m.mrp), String(m.sellingPrice)])
         );
       }
       toast.success(`Exported ${label}`);

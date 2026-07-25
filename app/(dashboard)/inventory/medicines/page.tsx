@@ -99,8 +99,8 @@ export default function MedicinesPage() {
       if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
       toast.success(editId ? "Medicine updated" : "Medicine created");
       resetForm(); fetchMedicines();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
     }

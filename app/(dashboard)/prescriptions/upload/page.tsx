@@ -62,8 +62,8 @@ export default function PrescriptionUploadPage() {
 
       toast.success("Prescription uploaded successfully");
       router.push("/prescriptions/process");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsProcessing(false);
     }

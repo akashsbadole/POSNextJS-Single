@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET() {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const settings = await prisma.setting.findMany();
     return NextResponse.json({ settings });
@@ -12,6 +15,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { key, value, category, description } = body;

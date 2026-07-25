@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET() {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const [
       totalMedicines,

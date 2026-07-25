@@ -18,7 +18,7 @@ export default function AdjustmentsPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<{ medicine: string; type: string; qty: number; reason: string; date: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<InventoryItem | null>(null);
   const [adjType, setAdjType] = useState<"increase" | "decrease">("increase");

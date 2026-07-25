@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export default function PatientsPage() {
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
 
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
@@ -46,9 +46,9 @@ export default function PatientsPage() {
       setTotalPages(data.pagination.totalPages);
     } catch { toast.error("Failed to load patients"); }
     finally { setLoading(false); }
-  };
+  }, [page, search]);
 
-  useEffect(() => { fetchPatients(); }, [page, search]);
+  useEffect(() => { fetchPatients(); }, [page, search, fetchPatients]);
 
   const resetForm = () => { setForm(defaultForm); setEditId(null); };
 
@@ -75,7 +75,7 @@ export default function PatientsPage() {
       if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
       toast.success(editId ? "Patient updated" : "Patient created");
       resetForm(); setShowForm(false); fetchPatients();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Something went wrong"); }
     finally { setSaving(false); }
   };
 

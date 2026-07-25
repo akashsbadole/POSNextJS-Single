@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyOTP } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
+import { createOTPToken } from "@/lib/otp-token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +20,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No account found with this phone number" }, { status: 404 });
     }
 
+    const otpToken = user.email ? await createOTPToken(user.id, user.email) : null;
+
     return NextResponse.json({
       success: true,
+      otpToken,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
   } catch {

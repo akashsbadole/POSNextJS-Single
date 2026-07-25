@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,15 +26,15 @@ export default function CustomFieldsPage() {
   const [loading, setLoading] = useState(true);
   const [entityFilter, setEntityFilter] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const url = entityFilter ? `/api/custom-fields?entityType=${entityFilter}` : "/api/custom-fields";
     const res = await fetch(url);
     const data = await res.json();
     setFields(data.fields || []);
     setLoading(false);
-  };
+  }, [entityFilter]);
 
-  useEffect(() => { load(); }, [entityFilter]);
+  useEffect(() => { load(); }, [entityFilter, load]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this custom field? This also deletes all saved values.")) return;

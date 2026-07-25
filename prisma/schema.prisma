@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -44,6 +44,24 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verificationtokens")
+}
+
+model InvoiceCounter {
+  id        String   @id @default(cuid())
+  prefix    String   @unique
+  counter   Int      @default(1)
+
+  @@map("invoice_counters")
+}
+
+model RateLimitEntry {
+  id        String   @id @default(cuid())
+  key       String
+  windowMs  Int
+  createdAt DateTime @default(now())
+
+  @@index([key, windowMs, createdAt])
+  @@map("rate_limit_entries")
 }
 
 model User {
@@ -130,9 +148,9 @@ model Medicine {
   strength        String?
   unitOfMeasure   String   @default("PCS") @map("unit_of_measure")
 
-  mrp             Float
-  purchasePrice   Float    @map("purchase_price")
-  sellingPrice    Float    @map("selling_price")
+  mrp             Float    @db.DoublePrecision
+  purchasePrice   Float    @db.DoublePrecision @map("purchase_price")
+  sellingPrice    Float    @db.DoublePrecision @map("selling_price")
 
   supplierId      String?  @map("supplier_id")
   supplier        Supplier? @relation(fields: [supplierId], references: [id])
@@ -160,6 +178,11 @@ model Medicine {
   subscriptionItems SubscriptionItem[]
   promiseOrders   PromiseOrder[]
 
+  @@index([name])
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([isActive])
   @@map("medicines")
 }
 
@@ -220,8 +243,8 @@ model Inventory {
   quantity    Int      @default(0)
   reservedQty Int      @default(0) @map("reserved_qty")
 
-  mrp         Float?
-  sellingPrice Float?  @map("selling_price")
+  mrp         Float?   @db.DoublePrecision
+  sellingPrice Float?  @db.DoublePrecision @map("selling_price")
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -229,6 +252,7 @@ model Inventory {
   batches     Batch[]
 
   @@unique([medicineId, branchId])
+  @@index([branchId])
   @@map("inventories")
 }
 
@@ -246,11 +270,13 @@ model Batch {
   manufacturedDate DateTime? @map("manufactured_date")
   expiryDate    DateTime  @map("expiry_date")
 
-  purchasePrice Float   @map("purchase_price")
-  mrp           Float
+  purchasePrice Float   @db.DoublePrecision @map("purchase_price")
+  mrp           Float   @db.DoublePrecision
 
   createdAt     DateTime  @default(now()) @map("created_at")
 
+  @@index([medicineId])
+  @@index([expiryDate])
   @@map("batches")
 }
 
@@ -400,20 +426,20 @@ model Sale {
   cashierId     String       @map("cashier_id")
   cashier       User         @relation(fields: [cashierId], references: [id])
 
-  subtotal      Float
-  discountAmount Float     @default(0.00) @map("discount_amount")
+  subtotal      Float        @db.DoublePrecision
+  discountAmount Float     @default(0.00) @db.DoublePrecision @map("discount_amount")
   discountType  String?      @map("discount_type")
-  discountValue Float?       @map("discount_value")
+  discountValue Float?       @db.DoublePrecision @map("discount_value")
 
-  taxableAmount Float        @map("taxable_amount")
-  cgstAmount    Float        @map("cgst_amount")
-  sgstAmount    Float        @map("sgst_amount")
-  igstAmount    Float        @default(0.00) @map("igst_amount")
-  totalGst      Float        @map("total_gst")
+  taxableAmount Float        @db.DoublePrecision @map("taxable_amount")
+  cgstAmount    Float        @db.DoublePrecision @map("cgst_amount")
+  sgstAmount    Float        @db.DoublePrecision @map("sgst_amount")
+  igstAmount    Float        @default(0.00) @db.DoublePrecision @map("igst_amount")
+  totalGst      Float        @db.DoublePrecision @map("total_gst")
 
-  totalAmount   Float        @map("total_amount")
-  roundOff      Float        @default(0.00) @map("round_off")
-  finalAmount   Float        @map("final_amount")
+  totalAmount   Float        @db.DoublePrecision @map("total_amount")
+  roundOff      Float        @default(0.00) @db.DoublePrecision @map("round_off")
+  finalAmount   Float        @db.DoublePrecision @map("final_amount")
 
   paymentMode   String       @map("payment_mode")
   paymentStatus String       @default("PAID") @map("payment_status")
@@ -423,7 +449,7 @@ model Sale {
 
   loyaltyPointsEarned Int    @default(0) @map("loyalty_points_earned")
   loyaltyPointsUsed   Int    @default(0) @map("loyalty_points_used")
-  loyaltyDiscount     Float  @default(0.00) @map("loyalty_discount")
+  loyaltyDiscount     Float  @default(0.00) @db.DoublePrecision @map("loyalty_discount")
 
   status        String       @default("PENDING")
   notes         String?
@@ -435,6 +461,10 @@ model Sale {
   payments      Payment[]
   returns       SaleReturn[]
 
+  @@index([createdAt])
+  @@index([branchId])
+  @@index([cashierId])
+  @@index([paymentStatus])
   @@map("sales")
 }
 
@@ -448,15 +478,15 @@ model SaleItem {
 
   batchNumber String?  @map("batch_number")
   quantity    Int
-  unitPrice   Float    @map("unit_price")
-  mrp         Float
+  unitPrice   Float    @db.DoublePrecision @map("unit_price")
+  mrp         Float    @db.DoublePrecision
 
   gstRate     Float    @map("gst_rate")
-  cgstAmount  Float    @map("cgst_amount")
-  sgstAmount  Float    @map("sgst_amount")
+  cgstAmount  Float    @db.DoublePrecision @map("cgst_amount")
+  sgstAmount  Float    @db.DoublePrecision @map("sgst_amount")
 
-  discountAmount Float  @default(0.00) @map("discount_amount")
-  totalAmount Float    @map("total_amount")
+  discountAmount Float  @default(0.00) @db.DoublePrecision @map("discount_amount")
+  totalAmount Float    @db.DoublePrecision @map("total_amount")
 
   returnedQty Int      @default(0) @map("returned_qty")
 
@@ -468,7 +498,7 @@ model Payment {
   saleId      String        @map("sale_id")
   sale        Sale          @relation(fields: [saleId], references: [id])
 
-  amount      Float
+  amount      Float         @db.DoublePrecision
   mode        String
 
   transactionId String?     @map("transaction_id")
@@ -490,7 +520,7 @@ model SaleReturn {
   sale        Sale     @relation(fields: [saleId], references: [id])
 
   reason      String
-  refundAmount Float   @map("refund_amount")
+  refundAmount Float   @db.DoublePrecision @map("refund_amount")
   refundMode  String   @map("refund_mode")
 
   status      String   @default("PENDING")
@@ -510,8 +540,8 @@ model SaleReturnItem {
 
   medicineId  String     @map("medicine_id")
   quantity    Int
-  unitPrice   Float      @map("unit_price")
-  refundAmount Float    @map("refund_amount")
+  unitPrice   Float      @db.DoublePrecision @map("unit_price")
+  refundAmount Float    @db.DoublePrecision @map("refund_amount")
   reason      String?
 
   @@map("sale_return_items")
@@ -532,12 +562,12 @@ model PurchaseOrder {
 
   status      String         @default("DRAFT")
 
-  subtotal    Float
-  discountAmount Float      @default(0.00) @map("discount_amount")
-  taxableAmount Float        @map("taxable_amount")
-  cgstAmount  Float          @map("cgst_amount")
-  sgstAmount  Float          @map("sgst_amount")
-  totalAmount Float          @map("total_amount")
+  subtotal    Float          @db.DoublePrecision
+  discountAmount Float      @default(0.00) @db.DoublePrecision @map("discount_amount")
+  taxableAmount Float        @db.DoublePrecision @map("taxable_amount")
+  cgstAmount  Float          @db.DoublePrecision @map("cgst_amount")
+  sgstAmount  Float          @db.DoublePrecision @map("sgst_amount")
+  totalAmount Float          @db.DoublePrecision @map("total_amount")
 
   expectedDeliveryDate DateTime? @map("expected_delivery_date")
 
@@ -549,6 +579,8 @@ model PurchaseOrder {
   items       PurchaseOrderItem[]
   grns        GRN[]
 
+  @@index([status])
+  @@index([branchId])
   @@map("purchase_orders")
 }
 
@@ -562,9 +594,9 @@ model PurchaseOrderItem {
 
   quantity    Int
   receivedQty Int           @default(0) @map("received_qty")
-  unitPrice   Float         @map("unit_price")
+  unitPrice   Float         @db.DoublePrecision @map("unit_price")
   gstRate     Float         @map("gst_rate")
-  totalAmount Float         @map("total_amount")
+  totalAmount Float         @db.DoublePrecision @map("total_amount")
 
   @@map("purchase_order_items")
 }
@@ -603,7 +635,7 @@ model GRNItem {
   batchNumber String   @map("batch_number")
   expiryDate  DateTime @map("expiry_date")
 
-  unitPrice   Float    @map("unit_price")
+  unitPrice   Float    @db.DoublePrecision @map("unit_price")
 
   @@map("grn_items")
 }
@@ -613,7 +645,7 @@ model SupplierPayment {
   supplierId  String   @map("supplier_id")
   supplier    Supplier @relation(fields: [supplierId], references: [id])
 
-  amount      Float
+  amount      Float    @db.DoublePrecision
   mode        String
   transactionId String? @map("transaction_id")
 
@@ -642,10 +674,10 @@ model OnlineOrder {
   trackingNumber String?  @map("tracking_number")
   courierPartner String?  @map("courier_partner")
 
-  subtotal      Float
-  deliveryCharge Float    @default(0.00) @map("delivery_charge")
-  discountAmount Float    @default(0.00) @map("discount_amount")
-  totalAmount   Float
+  subtotal      Float     @db.DoublePrecision
+  deliveryCharge Float    @default(0.00) @db.DoublePrecision @map("delivery_charge")
+  discountAmount Float    @default(0.00) @db.DoublePrecision @map("discount_amount")
+  totalAmount   Float     @db.DoublePrecision
 
   paymentMode   String
   paymentStatus String    @default("PENDING") @map("payment_status")
@@ -674,8 +706,8 @@ model OnlineOrderItem {
   medicine    Medicine    @relation(fields: [medicineId], references: [id])
 
   quantity    Int
-  unitPrice   Float
-  totalAmount Float       @map("total_amount")
+  unitPrice   Float       @db.DoublePrecision
+  totalAmount Float       @db.DoublePrecision @map("total_amount")
 
   @@map("online_order_items")
 }
@@ -689,9 +721,9 @@ model Subscription {
   name        String
   frequency   String
 
-  subtotal    Float
-  deliveryCharge Float           @default(0.00) @map("delivery_charge")
-  totalAmount Float               @map("total_amount")
+  subtotal    Float               @db.DoublePrecision
+  deliveryCharge Float           @default(0.00) @db.DoublePrecision @map("delivery_charge")
+  totalAmount Float               @db.DoublePrecision @map("total_amount")
 
   status      String              @default("ACTIVE")
 
@@ -715,7 +747,7 @@ model SubscriptionItem {
   medicine    Medicine    @relation(fields: [medicineId], references: [id])
 
   quantity    Int
-  unitPrice   Float
+  unitPrice   Float        @db.DoublePrecision
 
   @@map("subscription_items")
 }
@@ -824,7 +856,7 @@ model Expense {
   id          String   @id @default(cuid())
   category    String
   description String
-  amount      Float
+  amount      Float    @db.DoublePrecision
   date        DateTime
 
   branchId    String?  @map("branch_id")

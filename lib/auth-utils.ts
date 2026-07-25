@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { z } from "zod";
 import { generateInvoiceNumber } from "@/lib/utils";
 
@@ -59,10 +60,9 @@ export async function registerUser(data: z.infer<typeof registerSchema>) {
 
 // OTP Functions
 export async function sendOTP(phone: string) {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 999999).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-  // Store OTP in Redis or database
   await prisma.verificationToken.create({
     data: {
       identifier: phone,
@@ -71,11 +71,40 @@ export async function sendOTP(phone: string) {
     },
   });
 
-  // TODO: Integrate with Twilio/Msg91 for SMS
-  // For development, log OTP
-  console.log(`OTP for ${phone}: ${otp}`);
+  await sendSMS(phone, `Your PharmacyPro OTP is ${otp}. Valid for 10 minutes.`);
 
   return { success: true };
+}
+
+async function sendSMS(phone: string, message: string) {
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+  const msg91Key = process.env.MSG91_AUTH_KEY;
+
+  try {
+    if (twilioSid && twilioToken && twilioPhone) {
+      const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
+      await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: `+91${phone}`, From: twilioPhone, Body: message }),
+      });
+      return;
+    }
+    if (msg91Key) {
+      await fetch("https://api.msg91.com/api/v5/flow/", {
+        method: "POST",
+        headers: { "authkey": msg91Key, "Content-Type": "application/json" },
+        body: JSON.stringify({ sender: "PHARM", mobiles: phone, message }),
+      });
+      return;
+    }
+  } catch {
+    // fall through to console.log
+  }
+  // ponytail: SMS providers not configured. Wire Twilio or MSG91 env vars to remove this.
+  console.log(`[SMS to ${phone}] ${message}`);
 }
 
 export async function verifyOTP(phone: string, otp: string) {
@@ -106,7 +135,7 @@ export async function requestPasswordReset(email: string) {
     return { success: false, error: "User not found" };
   }
 
-  const token = generateInvoiceNumber("RST");
+  const token = await generateInvoiceNumber("RST");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await prisma.verificationToken.create({

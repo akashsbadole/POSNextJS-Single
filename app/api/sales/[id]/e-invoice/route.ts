@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import type { Sale, SaleItem, Medicine, Patient, Branch } from "@prisma/client";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 const GST_STATE_CODES: Record<string, string> = {
   "Andhra Pradesh": "37", "Arunachal Pradesh": "12", "Assam": "18", "Bihar": "10",
@@ -14,13 +16,13 @@ const GST_STATE_CODES: Record<string, string> = {
   "Lakshadweep": "31", "Puducherry": "34",
 };
 
-function buildGstnPayload(sale: any, items: any[]) {
+function buildGstnPayload(sale: Sale & { branch: Branch; patient: Patient | null }, items: (SaleItem & { medicine: Medicine })[]) {
   const branch = sale.branch;
   const sellerCode = GST_STATE_CODES[branch.state] || "27";
   const buyerStateCode = sale.patient?.state ? GST_STATE_CODES[sale.patient.state] : sellerCode;
   const isInterState = sellerCode !== buyerStateCode;
 
-  const itemList = items.map((item: any, idx: number) => ({
+  const itemList = items.map((item, idx: number) => ({
     sl_no: idx + 1,
     prd_desc: item.medicine?.name || "",
     hsn_cd: item.medicine?.hsnCode || "3004",
@@ -87,6 +89,8 @@ function buildGstnPayload(sale: any, items: any[]) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const saleId = (await params).id;
     const sale = await prisma.sale.findUnique({
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const payload = buildGstnPayload(sale, sale.items);
     const eInvoiceId = `EI-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
 
-    const updated = await prisma.sale.update({
+    await prisma.sale.update({
       where: { id: saleId },
       data: { eInvoiceId },
     });
@@ -131,6 +135,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const saleId = (await params).id;
     const sale = await prisma.sale.findUnique({

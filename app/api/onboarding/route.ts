@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 export async function GET() {
   try {
     const setting = await prisma.setting.findUnique({
-      where: { key: "onboarding_completed" },
+      where: { key: "onboarding_complete" },
     });
     return NextResponse.json({ completed: setting?.value === "true" });
   } catch (error) {

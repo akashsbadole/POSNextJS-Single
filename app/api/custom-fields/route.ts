@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const entityType = searchParams.get("entityType");
@@ -19,6 +22,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { entityType, fieldName, fieldType, options, isRequired, placeholder, sortOrder } = body;
@@ -40,8 +45,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(field, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error: unknown) {
+    if ((error as { code?: string })?.code === "P2002") {
       return NextResponse.json({ error: "Field already exists for this entity type" }, { status: 409 });
     }
     return NextResponse.json({ error: "Failed to create custom field" }, { status: 500 });

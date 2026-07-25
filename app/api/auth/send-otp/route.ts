@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOTP } from "@/lib/auth-utils";
+import { checkOTP } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const { phone } = await req.json();
     if (!phone || !/^\d{10}$/.test(phone)) {
       return NextResponse.json({ error: "Valid 10-digit phone number required" }, { status: 400 });
+    }
+
+    if (!(await checkOTP("phone", phone))) {
+      return NextResponse.json({ error: "Too many OTP requests. Try again later." }, { status: 429 });
     }
 
     const result = await sendOTP(phone);

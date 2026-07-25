@@ -3,7 +3,6 @@
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -48,18 +47,20 @@ const navItems = [
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    badge: null as string | null,
   },
   {
     title: "Inventory",
     href: "/inventory/medicines",
     icon: Package,
-    badge: "MVP" as const,
     children: [
       { title: "Medicines", href: "/inventory/medicines", icon: Pill },
       { title: "Categories", href: "/inventory/categories", icon: Package },
       { title: "Suppliers", href: "/inventory/suppliers", icon: Truck },
-      { title: "Stock Adjustments", href: "/inventory/adjustments", icon: ClipboardList },
+      {
+        title: "Stock Adjustments",
+        href: "/inventory/adjustments",
+        icon: ClipboardList,
+      },
       {
         title: "Stock Alerts",
         href: "/inventory/stock-alerts",
@@ -76,7 +77,6 @@ const navItems = [
     title: "Prescriptions",
     href: "/prescriptions/upload",
     icon: FileText,
-    badge: "MVP" as const,
     children: [
       { title: "Upload", href: "/prescriptions/upload", icon: FileText },
       { title: "Process", href: "/prescriptions/process", icon: Activity },
@@ -88,7 +88,7 @@ const navItems = [
     title: "Sales & POS",
     href: "/pos",
     icon: ShoppingCart,
-    badge: "MVP" as const,
+
     children: [
       { title: "Point of Sale", href: "/pos", icon: CreditCard },
       { title: "Invoices", href: "/sales/invoices", icon: Receipt },
@@ -100,7 +100,7 @@ const navItems = [
     title: "Purchases",
     href: "/purchases/orders",
     icon: Truck,
-    badge: "MVP" as const,
+
     children: [
       { title: "Purchase Orders", href: "/purchases/orders", icon: FileText },
       { title: "GRN", href: "/purchases/grn", icon: Package },
@@ -111,7 +111,7 @@ const navItems = [
     title: "Reports",
     href: "/reports/sales",
     icon: BarChart3,
-    badge: "MVP" as const,
+
     children: [
       { title: "Sales Reports", href: "/reports/sales", icon: TrendingUp },
       { title: "Inventory Reports", href: "/reports/inventory", icon: Package },
@@ -127,7 +127,6 @@ const navItems = [
     title: "Online Store",
     href: "/online-store/products",
     icon: Globe,
-    badge: "Live" as const,
     children: [
       { title: "Products", href: "/online-store/products", icon: Package },
       { title: "Orders", href: "/online-store/orders", icon: ShoppingCart },
@@ -153,7 +152,7 @@ const navItems = [
     title: "Users & Roles",
     href: "/users/management",
     icon: Users,
-    badge: "MVP" as const,
+
     children: [
       { title: "User Management", href: "/users/management", icon: Users },
       { title: "Roles & Permissions", href: "/users/roles", icon: Shield },
@@ -163,7 +162,6 @@ const navItems = [
     title: "Settings",
     href: "/admin/settings",
     icon: Settings,
-    badge: null,
     children: [
       { title: "General", href: "/admin/settings", icon: Settings },
       { title: "Audit Logs", href: "/admin/audit-logs", icon: FileText },
@@ -317,11 +315,7 @@ export default function DashboardLayout({
                     {sidebarOpen && (
                       <>
                         <span className="flex-1 text-left">{item.title}</span>
-                        {item.badge && (
-                          <Badge variant="secondary" className="text-xs">
-                            {item.badge}
-                          </Badge>
-                        )}
+
                         <ChevronRight
                           className={`w-4 h-4 transition-transform ${expandedMenus[item.title] ? "rotate-90" : ""}`}
                         />
@@ -334,6 +328,7 @@ export default function DashboardLayout({
                         <Link
                           key={child.href}
                           href={child.href}
+                          onClick={() => setSidebarOpen(false)}
                           aria-current={
                             isActive(child.href) ? "page" : undefined
                           }
@@ -353,6 +348,7 @@ export default function DashboardLayout({
               ) : (
                 <Link
                   href={item.href}
+                  onClick={() => setSidebarOpen(false)}
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     sidebarOpen
@@ -364,11 +360,6 @@ export default function DashboardLayout({
                   {sidebarOpen && (
                     <>
                       <span className="flex-1">{item.title}</span>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </>
                   )}
                 </Link>
@@ -411,6 +402,15 @@ export default function DashboardLayout({
       >
         <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
           <div className="flex items-center gap-4 flex-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
             <div className="relative max-w-md w-full hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input

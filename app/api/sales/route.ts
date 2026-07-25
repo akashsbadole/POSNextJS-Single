@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber, calculateGST } from "@/lib/utils";
 import { pickBatchFEFO } from "@/lib/inventory";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const body = await req.json();
     const { items, patientId, prescriptionId, paymentMode, discountType, discountValue, branchId, cashierId } = body;
 
     let subtotal = 0;
-    let totalCGST = 0;
-    let totalSGST = 0;
     const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; cgstAmount: number; sgstAmount: number; totalAmount: number; batchNumber?: string }[] = [];
 
     const scheduleHMeds: string[] = [];
+    const itemTotals: number[] = [];
 
     for (const item of items) {
       const medicine = await prisma.medicine.findUnique({
@@ -33,6 +35,9 @@ export async function POST(req: NextRequest) {
 
       try {
         const picks = await pickBatchFEFO(item.medicineId, branchId, item.quantity);
+        const itemTotal = medicine.sellingPrice * item.quantity;
+        subtotal += itemTotal;
+        itemTotals.push(itemTotal);
         saleItemsData.push({
           medicineId: item.medicineId,
           quantity: item.quantity,
@@ -50,17 +55,6 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-
-      const itemTotal = medicine.sellingPrice * item.quantity;
-      const gst = calculateGST(itemTotal, medicine.gstRate);
-
-      subtotal += itemTotal;
-      totalCGST += gst.cgst;
-      totalSGST += gst.sgst;
-
-      saleItemsData[saleItemsData.length - 1].cgstAmount = gst.cgst;
-      saleItemsData[saleItemsData.length - 1].sgstAmount = gst.sgst;
-      saleItemsData[saleItemsData.length - 1].totalAmount = itemTotal + gst.total;
     }
 
     if (scheduleHMeds.length > 0 && !prescriptionId) {
@@ -77,6 +71,20 @@ export async function POST(req: NextRequest) {
       discountAmount = discountValue;
     }
 
+    let totalCGST = 0;
+    let totalSGST = 0;
+
+    for (let i = 0; i < saleItemsData.length; i++) {
+      const ratio = subtotal > 0 ? itemTotals[i] / subtotal : 1 / saleItemsData.length;
+      const discountedItemTotal = itemTotals[i] - discountAmount * ratio;
+      const gst = calculateGST(discountedItemTotal, saleItemsData[i].gstRate);
+      saleItemsData[i].cgstAmount = gst.cgst;
+      saleItemsData[i].sgstAmount = gst.sgst;
+      saleItemsData[i].totalAmount = discountedItemTotal + gst.total;
+      totalCGST += gst.cgst;
+      totalSGST += gst.sgst;
+    }
+
     const taxableAmount = subtotal - discountAmount;
     const totalGst = totalCGST + totalSGST;
     const totalAmount = taxableAmount + totalGst;
@@ -84,11 +92,12 @@ export async function POST(req: NextRequest) {
     const roundOff = finalAmount - totalAmount;
 
     const paymentStatus = paymentMode === "credit" ? "PENDING" : "PAID";
+    const invoiceNumber = await generateInvoiceNumber("INV");
 
     const result = await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.create({
         data: {
-          invoiceNumber: generateInvoiceNumber("INV"),
+          invoiceNumber,
           branchId,
           patientId,
           prescriptionId,
@@ -176,6 +185,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");

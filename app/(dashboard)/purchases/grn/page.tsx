@@ -57,7 +57,7 @@ export default function GRNPage() {
     const items = Object.entries(receivedQtys)
       .filter(([, qty]) => qty > 0)
       .map(([medicineId, quantity]) => ({ medicineId, quantity }));
-    const branchId = (session?.user as any)?.branchId || showReceive.branch.id;
+    const branchId = (session?.user as { branchId?: string })?.branchId || showReceive.branch.id;
     try {
       const res = await fetch("/api/purchases/receive", {
         method: "POST", headers: { "Content-Type": "application/json" },

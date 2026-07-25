@@ -64,8 +64,8 @@ export default function LoginPage() {
       }
       setOtpSent(true);
       toast.success("OTP sent to your phone");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsLoading(false);
     }
@@ -86,14 +86,15 @@ export default function LoginPage() {
       }
       const data = await res.json();
       const email = data.user?.email;
-      if (email) {
-        await signIn("credentials", { email, password: "__otp__" });
+      const otpToken = data.otpToken;
+      if (email && otpToken) {
+        await signIn("credentials", { email, password: `__otp__:${otpToken}` });
       }
       toast.success("Login successful!");
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsLoading(false);
     }
