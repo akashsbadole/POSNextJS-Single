@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { patientId, doctorId, items, createdById } = body;
+    const { patientId, doctorId, items, createdById, imageUrl, ocrText } = body;
 
     if (!patientId || !createdById) {
       return NextResponse.json({ error: "patientId and createdById are required" }, { status: 400 });
@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
         doctorId,
         createdById,
         status: "PENDING",
+        imageUrl,
+        ocrText,
         items: {
           create: (items || []).map((it: { medicineName: string; dosage?: string; frequency?: string; duration?: string; quantity?: number; instructions?: string }) => ({
             medicineName: it.medicineName,

@@ -17,54 +17,49 @@ and Tailwind/shadcn-ui.
 
 ## ✨ Features
 
-### MVP (Phase 1) — ✅ Implemented
+### ✅ Fully Working
 
-- ✅ **Inventory Management** - Medicine CRUD, categories, suppliers, stock tracking
-- ⚠️ **Prescription Management** - Doctors/patients real; upload UI is a stub (no OCR yet); processing wired to API
-- ✅ **Sales & Billing** - POS with GST calculation, invoicing, returns
-- ✅ **Purchase Management** - Purchase orders, GRN, supplier payments
-- ✅ **User & Role Management** - Users list real; role assignment now works (RBAC not yet enforced in API)
-- ✅ **Reporting (partial)** - Dashboard real; detailed Sales/Financial/Custom reports are stubbed
-- ✅ **Security** - JWT auth, audit logs (now readable), input validation
+- ✅ **Inventory Management** — Medicine CRUD, categories, suppliers, stock tracking, batch expiry alerts, FEFO picking
+- ✅ **Sales & POS** — Cart, GST calculation (CGST/SGST), invoicing, returns, barcode lookup, payment modes (cash/card/UPI/credit)
+- ✅ **Purchase Management** — Purchase orders, GRN, supplier payments, auto inventory update on receive
+- ✅ **Prescriptions** — Doctors/patients CRUD, prescription processing (FULFILLED/CANCELLED), OCR upload UI present
+- ✅ **User & Auth** — NextAuth (credentials + Google), OTP login, role-based access, audit logs, SUSPENDED/INACTIVE blocking
+- ✅ **Reports & Dashboard** — Real KPIs, monthly sales trends, top medicines, GST breakdown, low-stock alerts
+- ✅ **Custom Fields** — Dynamic fields for any entity type with validation
+- ✅ **Schemes & Drug Licenses** — Full CRUD with filtering
+- ✅ **Onboarding** — First-run setup wizard
+- ✅ **Online Store APIs** — Product/order/delivery APIs real; catalog page with search/filter, localStorage cart
 
-### Phase 2 (Core Enhancements) — ⚠️ Partial
+### ⚠️ Partial / Schema Only
 
-- ✅ **Batch & Expiry Tracking** - Schema + stock-alert page exist
-- ❌ **Barcode/QR System** - Declared, not wired
-- ⚠️ **Multi-Location Inventory** - Schema (StockTransfer) exists; no transfer UI
-- ❌ **Auto-Reordering** - Not implemented
-- ❌ **OCR for Prescriptions** - Not wired (Tesseract declared only)
-- ✅ **GST-Compliant Invoicing** - Auto-calculate GST (5%, 12%, 18%)
-- ⚠️ **Multi-Payment** - Cash/credit work; UPI/card have no gateway
-- ✅ **Loyalty Program** - Schema + tiers seeded
+- ⚠️ **Subscriptions** — CRUD APIs + UI real; no recurring delivery engine
+- ⚠️ **Online Store Checkout** — Cart is localStorage-only; no checkout API creating real transactions
+- ⚠️ **E-Invoicing** — GSTN JSON payload built; portal upload pending
+- ⚠️ **Multi-Location Inventory** — `StockTransfer` schema exists; no transfer API or UI
+- ⚠️ **Analytics** — Dashboard + report data real; "Sales Forecast" card is placeholder
+- ⚠️ **Prescription OCR** — Upload UI accepts files; Tesseract declared but not wired (saves blob URL)
 
-### Phase 3 (Competitive Features) — ⚠️ Schema exists; UI placeholders
+### ❌ Not Implemented
 
-- ⚠️ **Online Pharmacy** - Schema + API routes exist; pages are placeholders
-- ⚠️ **Delivery Management** - Schema exists; UI is placeholder
-- ❌ **PWA** - No manifest/service worker
-- ⚠️ **Advanced Reports** - Dashboard real; custom report builder is a stub
-- ❌ **Integrations** - SMS/WhatsApp/GST/Drug APIs not wired
-- ❌ **Security 2FA** - Column exists; no enrollment/verify flow
-
-### Phase 4 (Advanced) — ⚠️ Partial schema / placeholder UI
-
-- ⚠️ **Telemedicine Integration** - Placeholder UI; no backend yet
-- ❌ **AI-Powered Features** - Declared, unused
-- ⚠️ **Subscription Model** - Schema + seed exist; UI is placeholder
-- ❌ **Multi-Language** - No i18n layer
-- ❌ **Delivery Agent App** - Not present
+- ❌ **PWA** — No manifest/service worker
+- ❌ **WhatsApp/SMS Integrations** — Webhook logs to DB only; no actual sending
+- ❌ **Barcode/QR Generation** — Fields exist on Medicine; POS barcode input looks up by value only
+- ❌ **Auto-Reordering** — `reorderLevel`/`reorderQuantity` fields exist; no background job
+- ❌ **2FA Enrollment** — Column exists; no enrollment/verify flow
+- ❌ **Multi-Language (i18n)** — Not present
+- ❌ **Telemedicine** — Hardcoded "Coming Soon" page; no backend
+- ❌ **AI Features** — Declared, unused
 
 ## 📊 Current Status
 
 | Area | Status |
 |------|--------|
-| Dashboard, Inventory, POS/Sales, Purchases | ✅ Working |
-| Password auth, User management, Roles, Settings, Audit logs | ✅ Working |
-| Prescriptions (doctors/patients/processing) | ✅ Working |
-| Reports (detailed) | ⚠️ Dashboard real; detailed reports stubbed |
-| Online Store, Subscriptions, Telemedicine, Analytics | ⚠️ Schema exists; UI placeholders |
-| OCR, 2FA, Payments gateways, AI, PWA, i18n, Barcode/QR | ❌ Declared but unwired |
+| Inventory, Sales/POS, Purchases, Prescriptions | ✅ Working |
+| Auth, Users, Roles, Settings, Audit logs, Onboarding | ✅ Working |
+| Reports, Dashboard, Custom Fields, Schemes, Drug Licenses | ✅ Working |
+| Subscriptions, Online Store, Analytics, E-Invoicing | ⚠️ Partial |
+| Multi-Location Inventory, Prescription OCR | ⚠️ Schema only |
+| PWA, WhatsApp/SMS, Barcode/QR, Auto-Reorder, 2FA, i18n, Telemedicine, AI | ❌ Not implemented |
 
 ## 📸 Screenshots
 

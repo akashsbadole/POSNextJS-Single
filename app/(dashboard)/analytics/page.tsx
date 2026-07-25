@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Users, Package, ShoppingCart, DollarSign,
-  BarChart3, Activity, Calendar, Download, Sparkles, Loader2,
+  BarChart3, Activity, Calendar, Download, Loader2,
 } from "lucide-react";
 
 import type { Medicine } from "@/types";
@@ -42,6 +42,7 @@ export default function AnalyticsPage() {
   const avgOrder = totalSales ? Math.round(totalRevenue / totalSales) : 0;
   const lowStock = dashboard?.lowStockCount || 0;
   const trend = report?.trend || [];
+  const forecast = report?.forecast || [];
 
   const metrics = [
     { label: "Total Revenue", value: `₹${totalRevenue.toLocaleString("en-IN")}`, trend: "up", icon: DollarSign },
@@ -129,10 +130,29 @@ export default function AnalyticsPage() {
       <Card>
         <CardHeader><CardTitle>Sales Forecast</CardTitle></CardHeader>
         <CardContent>
-          <div className="h-32 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <Sparkles className="w-5 h-5 text-pharmacy-500 mr-2" />
-            <span className="text-gray-500">Sales forecast — coming in a future update</span>
-          </div>
+          {forecast.length === 0 ? (
+            <div className="h-32 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <Calendar className="w-5 h-5 text-gray-400 mr-2" />
+              <span className="text-gray-500">No data available for forecast</span>
+            </div>
+          ) : (
+            <div className="h-32 flex items-end gap-3">
+              {forecast.map((f: { month: string; sales: number; forecast: boolean }) => {
+                const max = Math.max(...forecast.map((x) => x.sales));
+                return (
+                  <div key={f.month} className="flex-1 flex flex-col items-center gap-1">
+                    <div
+                      className={`w-full rounded-t ${f.forecast ? "bg-pharmacy-200 dark:bg-pharmacy-700" : "bg-pharmacy-500"}`}
+                      style={{ height: `${max ? (f.sales / max) * 160 : 0}px` }}
+                      title={`${f.forecast ? "Forecast" : "Actual"}: ₹${f.sales.toLocaleString("en-IN")}`}
+                    />
+                    <span className="text-xs text-gray-500">{f.month.slice(2)}</span>
+                    {f.forecast && <span className="text-[10px] text-gray-400">est</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

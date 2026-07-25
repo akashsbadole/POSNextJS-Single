@@ -49,11 +49,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "customerId and items are required" }, { status: 400 });
     }
 
+    const medicineIds = items.map((i: { medicineId: string }) => i.medicineId);
+    const medicines = await prisma.medicine.findMany({
+      where: { id: { in: medicineIds } },
+      include: { inventories: true },
+    });
+
+    const medicineMap = new Map(medicines.map((m) => [m.id, m]));
     let subtotal = 0;
+    const stockErrors: string[] = [];
+
     for (const it of items) {
-      const med = await prisma.medicine.findUnique({ where: { id: it.medicineId } });
-      if (!med) return NextResponse.json({ error: `Medicine not found: ${it.medicineId}` }, { status: 404 });
-      subtotal += med.sellingPrice * (it.quantity || 1);
+      const med = medicineMap.get(it.medicineId);
+      if (!med) {
+        stockErrors.push(`Medicine not found: ${it.medicineId}`);
+        continue;
+      }
+      const qty = it.quantity || 1;
+      const totalStock = med.inventories.reduce((s, inv) => s + inv.quantity, 0);
+      if (totalStock < qty) {
+        stockErrors.push(`Insufficient stock for ${med.name}: available ${totalStock}, requested ${qty}`);
+      }
+      subtotal += med.sellingPrice * qty;
+    }
+
+    if (stockErrors.length > 0) {
+      return NextResponse.json({ error: stockErrors.join("; ") }, { status: 400 });
     }
 
     const order = await prisma.onlineOrder.create({

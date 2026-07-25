@@ -6,6 +6,26 @@ function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function computeForecast(trend: { month: string; sales: number }[]): { month: string; sales: number; forecast: boolean }[] {
+  if (trend.length === 0) return [];
+  const last3 = trend.slice(-3);
+  const avg = Math.round(last3.reduce((s, t) => s + t.sales, 0) / last3.length);
+  const lastMonth = trend[trend.length - 1].month;
+  const [yearStr, monthStr] = lastMonth.split("-").map(Number);
+  const result: { month: string; sales: number; forecast: boolean }[] = [...trend];
+  for (let i = 1; i <= 2; i++) {
+    let m = monthStr + i;
+    let y = yearStr;
+    while (m > 12) { m -= 12; y += 1; }
+    result.push({
+      month: `${y}-${String(m).padStart(2, "0")}`,
+      sales: avg,
+      forecast: true,
+    });
+  }
+  return result;
+}
+
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
   if (!session) return unauthorized();
@@ -56,6 +76,8 @@ export async function GET(req: NextRequest) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, v]) => ({ month, sales: Math.round(v.sales), orders: v.orders }));
 
+    const forecast = computeForecast(trend);
+
     const topMedicines = Object.values(medicineAgg)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
@@ -74,6 +96,7 @@ export async function GET(req: NextRequest) {
         totalTaxable: Math.round(totalTaxable),
       },
       trend,
+      forecast,
       topMedicines,
     });
   } catch (error) {

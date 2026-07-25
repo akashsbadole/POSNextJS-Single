@@ -13,12 +13,14 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import Tesseract from "tesseract.js";
 
 export default function PrescriptionUploadPage() {
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [ocrText, setOcrText] = useState("");
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = [...files, ...acceptedFiles];
@@ -35,6 +37,15 @@ export default function PrescriptionUploadPage() {
     });
   };
 
+  const runOcr = async (file: File): Promise<string> => {
+    try {
+      const result = await Tesseract.recognize(file, "eng");
+      return result.data.text;
+    } catch {
+      return "";
+    }
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast.error("Please upload a prescription first");
@@ -46,11 +57,26 @@ export default function PrescriptionUploadPage() {
       const formData = new FormData();
       formData.append("image", files[0]);
 
+      const uploadRes = await fetch("/api/prescriptions/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        throw new Error(err.error || "Upload failed");
+      }
+
+      const { url } = await uploadRes.json();
+      const text = await runOcr(files[0]);
+      setOcrText(text);
+
       const res = await fetch("/api/prescriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageUrl: URL.createObjectURL(files[0]),
+          imageUrl: url,
+          ocrText: text,
           status: "PENDING",
         }),
       });
@@ -127,13 +153,22 @@ export default function PrescriptionUploadPage() {
                 </div>
               )}
 
+              {ocrText && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-1">Extracted Text (OCR)</p>
+                  <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-auto">
+                    {ocrText}
+                  </pre>
+                </div>
+              )}
+
               {files.length > 0 && (
                 <div className="mt-4 flex gap-2">
                   <Button onClick={handleUpload} disabled={isProcessing}>
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
                     Upload & Process
                   </Button>
-                  <Button variant="outline" onClick={() => { setFiles([]); setPreviews([]); }}>
+                  <Button variant="outline" onClick={() => { setFiles([]); setPreviews([]); setOcrText(""); }}>
                     <X className="w-4 h-4 mr-2" />Clear All
                   </Button>
                 </div>

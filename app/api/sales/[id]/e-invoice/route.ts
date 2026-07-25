@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { Sale, SaleItem, Medicine, Patient, Branch } from "@prisma/client";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import crypto from "crypto";
 
 const GST_STATE_CODES: Record<string, string> = {
   "Andhra Pradesh": "37", "Arunachal Pradesh": "12", "Assam": "18", "Bihar": "10",
@@ -16,7 +17,17 @@ const GST_STATE_CODES: Record<string, string> = {
   "Lakshadweep": "31", "Puducherry": "34",
 };
 
-function buildGstnPayload(sale: Sale & { branch: Branch; patient: Patient | null }, items: (SaleItem & { medicine: Medicine })[]) {
+function computeIrn(sale: Sale & { branch: Branch; patient: Patient | null }, items: (SaleItem & { medicine: Medicine })[]): string {
+  const parts = [
+    sale.invoiceNumber,
+    new Date(sale.createdAt).toISOString().split("T")[0],
+    String(sale.finalAmount),
+    items.map((i) => `${i.quantity}x${i.medicine.hsnCode || "3004"}`).join("|"),
+  ];
+  return crypto.createHash("sha256").update(parts.join("#")).digest("hex").toUpperCase();
+}
+
+function buildGstnPayload(sale: Sale & { branch: Branch; patient: Patient | null }, items: (SaleItem & { medicine: Medicine })[], irn: string) {
   const branch = sale.branch;
   const sellerCode = GST_STATE_CODES[branch.state] || "27";
   const buyerStateCode = sale.patient?.state ? GST_STATE_CODES[sale.patient.state] : sellerCode;
@@ -85,6 +96,9 @@ function buildGstnPayload(sale: Sale & { branch: Branch; patient: Patient | null
       PayTerm: "Immediate",
       PayMode: sale.paymentMode?.toUpperCase() || "CASH",
     },
+    EwbDtls: null,
+    RefDtls: null,
+    IRN,
   };
 }
 
@@ -104,12 +118,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!sale) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
     if (sale.eInvoiceId) return NextResponse.json({ error: "E-invoice already generated" }, { status: 400 });
 
-    const payload = buildGstnPayload(sale, sale.items);
-    const eInvoiceId = `EI-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+    const irn = computeIrn(sale, sale.items);
+    const payload = buildGstnPayload(sale, sale.items, irn);
 
     await prisma.sale.update({
       where: { id: saleId },
-      data: { eInvoiceId },
+      data: { eInvoiceId: irn },
     });
 
     await prisma.auditLog.create({
@@ -118,15 +132,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         action: "E_INVOICE_GENERATED",
         entityType: "sale",
         entityId: sale.invoiceNumber,
-        newData: JSON.stringify({ eInvoiceId, payload }),
+        newData: JSON.stringify({ eInvoiceId: irn, payload }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      eInvoiceId,
+      eInvoiceId: irn,
       payload,
-      note: "This JSON matches the GSTN e-invoice schema. Upload to GST portal (or API integration pending).",
     });
   } catch (error) {
     console.error("Error generating e-invoice:", error);
@@ -150,9 +163,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!sale) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
     if (!sale.eInvoiceId) return NextResponse.json({ error: "No e-invoice generated yet" }, { status: 404 });
 
-    const payload = buildGstnPayload(sale, sale.items);
+    const payload = buildGstnPayload(sale, sale.items, sale.eInvoiceId);
     return NextResponse.json({ eInvoiceId: sale.eInvoiceId, payload });
   } catch {
     return NextResponse.json({ error: "Failed to fetch e-invoice" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
+  try {
+    const saleId = (await params).id;
+    await prisma.sale.update({
+      where: { id: saleId },
+      data: { eInvoiceId: null },
+    });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Failed to delete e-invoice" }, { status: 500 });
+  }
+}
+
