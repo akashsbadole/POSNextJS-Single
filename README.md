@@ -3,10 +3,8 @@
 A Pharmacy Management System built with **Next.js 15** (App Router), TypeScript, Prisma,
 and Tailwind/shadcn-ui.
 
-> ⚠️ **Status note (2026-07-19):** The core MVP is functional. Several features advertised
-> in earlier docs were placeholders and are **not yet implemented** — see
-> [Current Status](#-current-status) below. Detailed issue tracking lives in
-> [`docs/issues/`](docs/issues/README.md).
+> ⚠️ **Status note (2026-07-26):** The core MVP is functional and connected to PostgreSQL.
+> Several advanced features remain placeholders — see [Current Status](#-current-status) below.
 
 ## Demo Credentials
 
@@ -40,20 +38,20 @@ and Tailwind/shadcn-ui.
 - ⚠️ **Multi-Payment** - Cash/credit work; UPI/card have no gateway
 - ✅ **Loyalty Program** - Schema + tiers seeded
 
-### Phase 3 (Competitive Features) — ❌ Not implemented (placeholder UI)
+### Phase 3 (Competitive Features) — ⚠️ Schema exists; UI placeholders
 
-- ❌ **Online Pharmacy** - Pages are hardcoded; no backend
-- ❌ **Delivery Management** - Hardcoded
+- ⚠️ **Online Pharmacy** - Schema + API routes exist; pages are placeholders
+- ⚠️ **Delivery Management** - Schema exists; UI is placeholder
 - ❌ **PWA** - No manifest/service worker
-- ❌ **Advanced Reports** - Custom report builder is a stub
+- ⚠️ **Advanced Reports** - Dashboard real; custom report builder is a stub
 - ❌ **Integrations** - SMS/WhatsApp/GST/Drug APIs not wired
 - ❌ **Security 2FA** - Column exists; no enrollment/verify flow
 
-### Phase 4 (Advanced) — ❌ Not implemented (placeholder UI)
+### Phase 4 (Advanced) — ⚠️ Partial schema / placeholder UI
 
-- ❌ **Telemedicine Integration** - Hardcoded mockup, no model/backend
+- ⚠️ **Telemedicine Integration** - Placeholder UI; no backend yet
 - ❌ **AI-Powered Features** - Declared, unused
-- ⚠️ **Subscription Model** - Schema + seed exist; UI is fake SaaS pricing
+- ⚠️ **Subscription Model** - Schema + seed exist; UI is placeholder
 - ❌ **Multi-Language** - No i18n layer
 - ❌ **Delivery Agent App** - Not present
 
@@ -62,32 +60,33 @@ and Tailwind/shadcn-ui.
 | Area | Status |
 |------|--------|
 | Dashboard, Inventory, POS/Sales, Purchases | ✅ Working |
-| Password auth, User management, Roles, Settings, Audit logs | ✅ Working (see docs/issues) |
+| Password auth, User management, Roles, Settings, Audit logs | ✅ Working |
 | Prescriptions (doctors/patients/processing) | ✅ Working |
-| Reports (detailed), Online Store, Subscriptions, Telemedicine, Analytics | ❌ Placeholder / TODO |
-| OCR, 2FA, Payments, AI, PWA, i18n, Barcode/QR | ❌ Declared but unwired |
+| Reports (detailed) | ⚠️ Dashboard real; detailed reports stubbed |
+| Online Store, Subscriptions, Telemedicine, Analytics | ⚠️ Schema exists; UI placeholders |
+| OCR, 2FA, Payments gateways, AI, PWA, i18n, Barcode/QR | ❌ Declared but unwired |
+
+## 📸 Screenshots
+
+| Login | Dashboard | Onboarding |
+|-------|-----------|------------|
+| ![Login](public/PharmacyPro-login.png) | ![Dashboard](public/PharmacyPro-dashboard.png) | ![Onboarding](public/PharmacyPro-onboarding.png) |
 
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: SQLite + Prisma ORM (README previously said PostgreSQL — actual deployment uses SQLite via `prisma/pharmacy.db`)
-- **Auth**: NextAuth.js (JWT + OAuth; OTP send/verify is stubbed)
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: NextAuth.js (JWT + OAuth)
 - **State**: Zustand + TanStack Query
-- **Charts**: Recharts (declared, not yet used in reports)
-- **OCR**: Tesseract.js (declared, not wired)
-- **Payments**: Razorpay + Stripe (declared, not wired)
-- **Cache**: Redis (declared, not wired)
-- **AI**: OpenAI API + Google Gemini (declared, not wired)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
-
-> Note: The project runs on SQLite out of the box — no PostgreSQL/Redis required for local dev.
+- PostgreSQL 14+ running on `localhost:5432`
 
 ### Installation
 
@@ -101,7 +100,7 @@ npm install
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env with your credentials
+# Ensure DATABASE_URL points to your PostgreSQL instance
 
 # Generate Prisma client
 npx prisma generate
