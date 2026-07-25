@@ -14,15 +14,21 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("sales");
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<{ kpis?: Record<string, number>; trend?: { month: string; sales: number; orders: number }[]; topMedicines?: { name: string; units?: number; revenue?: number }[] } | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  useEffect(() => {
+  const fetchReport = (sd: string, ed: string) => {
     setLoading(true);
-    fetch("/api/reports")
+    const params = new URLSearchParams();
+    if (sd && ed) { params.set("startDate", sd); params.set("endDate", ed); }
+    fetch(`/api/reports?${params}`)
       .then((r) => r.json())
       .then((d) => setReport(d))
       .catch(() => toast.error("Failed to load report"))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchReport(startDate, endDate); }, [startDate, endDate]);
 
   const tabs = [
     { id: "sales", label: "Sales Reports", icon: TrendingUp },
@@ -44,7 +50,8 @@ export default function ReportsPage() {
           <p className="text-gray-500 dark:text-gray-400">Comprehensive business insights</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"><Calendar className="w-4 h-4 mr-2" />Date Range</Button>
+          <input type="date" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <input type="date" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           <Button variant="outline" size="sm"><Filter className="w-4 h-4 mr-2" />Filters</Button>
           <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export</Button>
         </div>

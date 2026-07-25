@@ -1,209 +1,113 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import {
-  DialogRoot,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 
-interface DrugLicense {
-  id: string;
-  licenseType: string;
-  licenseNumber: string;
-  holderName: string;
-  holderType: string;
-  issuingAuthority: string;
-  issueDate: string;
-  expiryDate: string;
-  isActive: boolean;
-}
-
-const emptyForm: Omit<DrugLicense, "id" | "isActive"> = {
-  licenseType: "DL_21B",
-  licenseNumber: "",
-  holderName: "",
-  holderType: "BRANCH",
-  issuingAuthority: "",
-  issueDate: "",
-  expiryDate: "",
+type License = {
+  id: string; licenseType: string; licenseNumber: string; holderName: string;
+  holderType: string; holderId: string; issuingAuthority?: string | null;
+  issueDate?: string | null; expiryDate: string; isActive: boolean;
 };
 
 export default function DrugLicensesPage() {
-  const [licenses, setLicenses] = useState<DrugLicense[]>([]);
+  const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<DrugLicense | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState({ licenseType: "RETAIL", licenseNumber: "", holderName: "", holderType: "BRANCH", holderId: "", issuingAuthority: "", issueDate: "", expiryDate: "" });
 
-  const fetchLicenses = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/drug-licenses");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setLicenses(data);
-    } catch {
-      toast.error("Failed to load drug licenses");
-    } finally {
-      setLoading(false);
-    }
+  const load = async () => {
+    const res = await fetch("/api/drug-licenses");
+    if (res.ok) setLicenses(await res.json());
+    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchLicenses();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setOpen(true);
+  const resetForm = () => {
+    setForm({ licenseType: "RETAIL", licenseNumber: "", holderName: "", holderType: "BRANCH", holderId: "", issuingAuthority: "", issueDate: "", expiryDate: "" });
+    setEditId(null); setShowForm(false);
   };
 
-  const openEdit = (license: DrugLicense) => {
-    setEditing(license);
-    setForm({
-      licenseType: license.licenseType,
-      licenseNumber: license.licenseNumber,
-      holderName: license.holderName,
-      holderType: license.holderType,
-      issuingAuthority: license.issuingAuthority || "",
-      issueDate: license.issueDate || "",
-      expiryDate: license.expiryDate,
-    });
-    setOpen(true);
-  };
-
-  const handleSave = async () => {
+  const handleSubmit = async () => {
     if (!form.licenseNumber || !form.holderName || !form.expiryDate) {
-      toast.error("License number, holder name, and expiry date are required");
+      toast.error("License number, holder name, and expiry date required");
       return;
     }
-    setSaving(true);
-    try {
-      const url = "/api/drug-licenses";
-      const method = editing ? "PUT" : "POST";
-      const body = editing ? { ...form, id: editing.id } : form;
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      toast.success(editing ? "License updated" : "License created");
-      setOpen(false);
-      fetchLicenses();
-    } catch {
-      toast.error("Failed to save");
-    } finally {
-      setSaving(false);
-    }
+    const url = "/api/drug-licenses";
+    const method = editId ? "PUT" : "POST";
+    const body = editId ? { id: editId, ...form } : form;
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) { toast.success(editId ? "License updated" : "License created"); resetForm(); load(); }
+    else { const err = await res.json(); toast.error(err.error || "Failed"); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Deactivate this license?")) return;
-    try {
-      const res = await fetch(`/api/drug-licenses?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      toast.success("License deactivated");
-      fetchLicenses();
-    } catch {
-      toast.error("Failed to deactivate");
-    }
+    if (!confirm("Delete this license?")) return;
+    const res = await fetch(`/api/drug-licenses?id=${id}`, { method: "DELETE" });
+    if (res.ok) { toast.success("License deleted"); load(); }
   };
 
-  const isExpiringSoon = (expiryDate: string) => {
-    const diff = new Date(expiryDate).getTime() - Date.now();
-    return diff <= 90 * 24 * 60 * 60 * 1000 && diff > 0;
+  const edit = (l: License) => {
+    setForm({ licenseType: l.licenseType, licenseNumber: l.licenseNumber, holderName: l.holderName, holderType: l.holderType, holderId: l.holderId, issuingAuthority: l.issuingAuthority || "", issueDate: l.issueDate?.split("T")[0] || "", expiryDate: l.expiryDate.split("T")[0] });
+    setEditId(l.id); setShowForm(true);
   };
 
-  const isExpired = (expiryDate: string) => new Date(expiryDate).getTime() < Date.now();
+  const getExpiryStatus = (date: string) => {
+    const daysLeft = Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) return <Badge variant="destructive">Expired</Badge>;
+    if (daysLeft <= 30) return <Badge variant="warning">{daysLeft} days</Badge>;
+    return <Badge variant="success">{daysLeft} days</Badge>;
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Drug Licenses</h1>
-          <p className="text-gray-500">Track licenses for branches and suppliers</p>
+          <p className="text-gray-500">Manage pharmacy and supplier drug licenses</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add License
-        </Button>
+        <Button onClick={() => { resetForm(); setShowForm(true); }}><Plus className="w-4 h-4 mr-1" />Add License</Button>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>All Licenses</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-pharmacy-500" /></div>
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
           ) : licenses.length === 0 ? (
-            <p className="text-center text-sm text-gray-500 py-8">No drug licenses found.</p>
+            <p className="text-center text-gray-500 py-8">No drug licenses registered</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Type</TableHead>
-                  <TableHead>Number</TableHead>
+                  <TableHead>License #</TableHead>
                   <TableHead>Holder</TableHead>
                   <TableHead>Issuing Authority</TableHead>
-                  <TableHead>Issue Date</TableHead>
-                  <TableHead>Expiry Date</TableHead>
+                  <TableHead>Expiry</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {licenses.map((license) => (
-                  <TableRow key={license.id}>
-                    <TableCell><Badge variant="secondary">{license.licenseType}</Badge></TableCell>
-                    <TableCell className="text-xs font-mono">{license.licenseNumber}</TableCell>
-                    <TableCell className="text-xs">
-                      <div>{license.holderName}</div>
-                      <div className="text-gray-400">{license.holderType}</div>
-                    </TableCell>
-                    <TableCell className="text-xs">{license.issuingAuthority || "—"}</TableCell>
-                    <TableCell className="text-xs">{license.issueDate ? new Date(license.issueDate).toLocaleDateString("en-IN") : "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      <span className={isExpired(license.expiryDate) ? "text-red-600 font-medium" : isExpiringSoon(license.expiryDate) ? "text-amber-600 font-medium" : undefined}>
-                        {new Date(license.expiryDate).toLocaleDateString("en-IN")}
-                      </span>
-                    </TableCell>
+                {licenses.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell><Badge variant="outline">{l.licenseType}</Badge></TableCell>
+                    <TableCell className="font-mono">{l.licenseNumber}</TableCell>
+                    <TableCell>{l.holderName}</TableCell>
+                    <TableCell>{l.issuingAuthority || "-"}</TableCell>
+                    <TableCell>{new Date(l.expiryDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{getExpiryStatus(l.expiryDate)}</TableCell>
                     <TableCell>
-                      <Badge variant={license.isActive ? (isExpired(license.expiryDate) ? "destructive" : isExpiringSoon(license.expiryDate) ? "warning" : "success") : "secondary"}>
-                        {license.isActive ? (isExpired(license.expiryDate) ? "Expired" : isExpiringSoon(license.expiryDate) ? "Expiring Soon" : "Active") : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(license)}>
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(license.id)}>
-                          <Trash2 className="w-3 h-3 text-red-500" />
-                        </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => edit(l)}><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(l.id)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -214,59 +118,57 @@ export default function DrugLicensesPage() {
         </CardContent>
       </Card>
 
-      <DialogRoot open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Drug License" : "New Drug License"}</DialogTitle>
-            <DialogDescription>
-              {editing ? "Update the drug license details" : "Add a new drug license"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="licenseType">License Type</Label>
-                <Input id="licenseType" value={form.licenseType} onChange={(e) => setForm({ ...form, licenseType: e.target.value })} />
+      {showForm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => setShowForm(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">{editId ? "Edit" : "Add"} Drug License</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">License Type</label>
+                <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.licenseType} onChange={(e) => setForm({ ...form, licenseType: e.target.value })}>
+                  <option value="RETAIL">RETAIL</option>
+                  <option value="WHOLESALE">WHOLESALE</option>
+                  <option value="DL_21B">DL 21B</option>
+                  <option value="DL_20B">DL 20B</option>
+                </select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="licenseNumber">License Number</Label>
-                <Input id="licenseNumber" value={form.licenseNumber} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} />
+              <div>
+                <label className="text-sm font-medium">License Number</label>
+                <Input value={form.licenseNumber} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Holder Name</label>
+                <Input value={form.holderName} onChange={(e) => setForm({ ...form, holderName: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Holder Type</label>
+                <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.holderType} onChange={(e) => setForm({ ...form, holderType: e.target.value })}>
+                  <option value="BRANCH">Branch</option>
+                  <option value="SUPPLIER">Supplier</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Issuing Authority</label>
+                <Input value={form.issuingAuthority} onChange={(e) => setForm({ ...form, issuingAuthority: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-sm font-medium">Issue Date</label>
+                  <Input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Expiry Date*</label>
+                  <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="holderName">Holder Name</Label>
-                <Input id="holderName" value={form.holderName} onChange={(e) => setForm({ ...form, holderName: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="holderType">Holder Type</Label>
-                <Input id="holderType" value={form.holderType} onChange={(e) => setForm({ ...form, holderType: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="issuingAuthority">Issuing Authority</Label>
-              <Input id="issuingAuthority" value={form.issuingAuthority} onChange={(e) => setForm({ ...form, issuingAuthority: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="issueDate">Issue Date</Label>
-                <Input id="issueDate" type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expiryDate">Expiry Date</Label>
-                <Input id="expiryDate" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
-              </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button onClick={handleSubmit}>{editId ? "Update" : "Create"}</Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </DialogRoot>
+        </div>
+      )}
     </div>
   );
 }

@@ -37,6 +37,7 @@ import {
   Sparkles,
   Shield,
   Languages,
+  ClipboardList,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -58,6 +59,7 @@ const navItems = [
       { title: "Medicines", href: "/inventory/medicines", icon: Pill },
       { title: "Categories", href: "/inventory/categories", icon: Package },
       { title: "Suppliers", href: "/inventory/suppliers", icon: Truck },
+      { title: "Stock Adjustments", href: "/inventory/adjustments", icon: ClipboardList },
       {
         title: "Stock Alerts",
         href: "/inventory/stock-alerts",
@@ -125,7 +127,7 @@ const navItems = [
     title: "Online Store",
     href: "/online-store/products",
     icon: Globe,
-    badge: "Phase 3" as const,
+    badge: "Live" as const,
     children: [
       { title: "Products", href: "/online-store/products", icon: Package },
       { title: "Orders", href: "/online-store/orders", icon: ShoppingCart },
@@ -136,19 +138,16 @@ const navItems = [
     title: "Subscriptions",
     href: "/subscriptions",
     icon: Calendar,
-    badge: "Phase 4" as const,
   },
   {
     title: "Analytics",
     href: "/analytics",
     icon: Sparkles,
-    badge: "Phase 4" as const,
   },
   {
     title: "Telemedicine",
     href: "/telemedicine",
     icon: HeartPulse,
-    badge: "Phase 4" as const,
   },
   {
     title: "Users & Roles",
@@ -170,7 +169,7 @@ const navItems = [
       { title: "Audit Logs", href: "/admin/audit-logs", icon: FileText },
       { title: "Custom Fields", href: "/admin/custom-fields", icon: FileText },
       { title: "Drug Licenses", href: "/admin/drug-licenses", icon: Shield },
-      { title: "Schemes", href: "/admin/schemes", icon: Badge },
+      { title: "Schemes", href: "/admin/schemes", icon: Sparkles },
       {
         title: "Languages",
         href: "/admin/settings?tab=languages",

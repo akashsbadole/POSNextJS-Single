@@ -191,10 +191,7 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 {[
                   { lang: "English", code: "en", status: "Active" },
-                  { lang: "Hindi", code: "hi", status: "Beta" },
-                  { lang: "Tamil", code: "ta", status: "Coming Soon" },
-                  { lang: "Telugu", code: "te", status: "Coming Soon" },
-                  { lang: "Bengali", code: "bn", status: "Coming Soon" },
+                  { lang: "Hindi", code: "hi", status: "Planned" },
                 ].map((l) => (
                   <div key={l.code} className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-2">
@@ -202,7 +199,7 @@ export default function SettingsPage() {
                       <span className="font-medium">{l.lang}</span>
                       <span className="text-xs text-gray-400">({l.code})</span>
                     </div>
-                    <Badge variant={l.status === "Active" ? "success" : l.status === "Beta" ? "warning" : "secondary"}>{l.status}</Badge>
+                    <Badge variant={l.status === "Active" ? "success" : "secondary"}>{l.status}</Badge>
                   </div>
                 ))}
               </div>

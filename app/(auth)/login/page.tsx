@@ -52,23 +52,51 @@ export default function LoginPage() {
       return;
     }
     setIsLoading(true);
-    // TODO: Call API to send OTP
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send OTP");
+      }
       setOtpSent(true);
-      setIsLoading(false);
       toast.success("OTP sent to your phone");
-    }, 1000);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOTPLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setIsLoading(true);
-    // TODO: Verify OTP and login
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, otp }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Invalid OTP");
+      }
+      const data = await res.json();
+      const email = data.user?.email;
+      if (email) {
+        await signIn("credentials", { email, password: "__otp__" });
+      }
       toast.success("Login successful!");
       router.push("/dashboard");
-    }, 1000);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -247,10 +275,7 @@ export default function LoginPage() {
         </Card>
 
         <div className="mt-6 flex justify-center gap-2">
-          <Badge variant="outline">MVP</Badge>
-          <Badge variant="outline">Phase 2</Badge>
-          <Badge variant="outline">Phase 3</Badge>
-          <Badge variant="outline">Phase 4</Badge>
+          <Badge variant="outline">v1.0</Badge>
         </div>
       </div>
     </div>

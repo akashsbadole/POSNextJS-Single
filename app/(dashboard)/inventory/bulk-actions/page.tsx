@@ -110,21 +110,48 @@ export default function BulkActionsPage() {
 
   const handleExport = useCallback(async (label: string) => {
     try {
+      const res = await fetch("/api/medicines?limit=10000");
+      const data = await res.json();
+      const list = data.medicines ?? [];
+      const filename = `${label.toLowerCase().replace(/\s+/g, "-")}.csv`;
+
       if (label === "Medicine Inventory") {
-        const res = await fetch("/api/medicines?limit=10000");
-        const data = await res.json();
-        const list = data.medicines ?? [];
-        downloadCSV("medicine-inventory.csv",
-          ["name", "genericName", "mrp", "sellingPrice", "category", "stock"],
-          list.map((m: { name: string; genericName: string; mrp: number; sellingPrice: number; category?: { name: string }; inventories?: { quantity: number }[] }) => [
-            m.name, m.genericName, String(m.mrp), String(m.sellingPrice),
+        downloadCSV(filename,
+          ["name", "genericName", "brand", "mrp", "sellingPrice", "category", "stock", "reorderLevel"],
+          list.map((m: any) => [
+            m.name, m.genericName, m.brandName || "",
+            String(m.mrp), String(m.sellingPrice),
             m.category?.name ?? "", String(m.inventories?.[0]?.quantity ?? 0),
+            String(m.reorderLevel || 10),
           ])
         );
-        toast.success("Exported medicine inventory");
+      } else if (label === "Category") {
+        const catRes = await fetch("/api/categories");
+        const catData = await catRes.json();
+        const cats = catData.categories ?? catData ?? [];
+        downloadCSV(filename, ["name", "description", "parent"],
+          cats.map((c: any) => [c.name, c.description || "", c.parent?.name || ""])
+        );
+      } else if (label === "Supplier") {
+        const supRes = await fetch("/api/suppliers");
+        const supData = await supRes.json();
+        const sups = supData.suppliers ?? supData ?? [];
+        downloadCSV(filename, ["name", "contact", "phone", "email", "gstin"],
+          sups.map((s: any) => [s.name, s.contactPerson || "", s.phone || "", s.email || "", s.gstin || ""])
+        );
+      } else if (label === "Patient") {
+        const patRes = await fetch("/api/patients");
+        const patData = await patRes.json();
+        const pats = patData.patients ?? patData ?? [];
+        downloadCSV(filename, ["name", "phone", "email", "gender", "age"],
+          pats.map((p: any) => [p.name, p.phone || "", p.email || "", p.gender || "", String(p.age || "")])
+        );
       } else {
-        toast.info("Export not wired — extend handleExport for this type");
+        downloadCSV(filename, ["name", "genericName", "mrp", "sellingPrice"],
+          list.map((m: any) => [m.name, m.genericName, String(m.mrp), String(m.sellingPrice)])
+        );
       }
+      toast.success(`Exported ${label}`);
     } catch {
       toast.error("Export failed");
     }

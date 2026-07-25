@@ -37,8 +37,8 @@ export default function RegisterPage() {
         const err = await res.json();
         throw new Error(err.error || "Registration failed");
       }
-      toast.success("Account created! Please sign in.");
-      router.push("/login");
+      toast.success("Account created! Let's set up your business.");
+      router.push("/onboarding");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -117,10 +117,7 @@ export default function RegisterPage() {
         </Card>
 
         <div className="mt-6 flex justify-center gap-2">
-          <Badge variant="outline">MVP</Badge>
-          <Badge variant="outline">Phase 2</Badge>
-          <Badge variant="outline">Phase 3</Badge>
-          <Badge variant="outline">Phase 4</Badge>
+          <Badge variant="outline">v1.0</Badge>
         </div>
       </div>
     </div>

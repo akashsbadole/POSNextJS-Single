@@ -299,6 +299,10 @@ model Patient {
   gender        String?
   bloodGroup    String?  @map("blood_group")
   address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  gstin         String?
 
   allergies     String   @default("[]")
   chronicConditions String @default("[]") @map("chronic_conditions")

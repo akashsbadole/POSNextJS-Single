@@ -40,6 +40,7 @@ interface Medicine {
   id: string;
   name: string;
   genericName: string;
+  barcode?: string | null;
   sellingPrice: number;
   gstRate: number;
   inventories: { batches: { batchNumber: string }[] }[];
@@ -51,6 +52,8 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [barcodeInput, setBarcodeInput] = useState(false);
+  const [barcodeValue, setBarcodeValue] = useState("");
   const [paymentMode, setPaymentMode] = useState<"cash" | "card" | "upi" | "credit">("cash");
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "flat">("none");
   const [discountValue, setDiscountValue] = useState(0);
@@ -168,9 +171,29 @@ export default function POSPage() {
                  placeholder="Search medicines..."
                />
              </div>
-             <Button variant="outline" size="icon" aria-label="Scan barcode">
-               <Barcode className="w-4 h-4" />
-             </Button>
+              <div className="relative">
+                <Button variant={barcodeInput ? "default" : "outline"} size="icon" aria-label="Scan barcode" onClick={() => { setBarcodeInput(!barcodeInput); setBarcodeValue(""); }}>
+                  <Barcode className="w-4 h-4" />
+                </Button>
+                {barcodeInput && (
+                  <div className="absolute top-full right-0 mt-2 z-10">
+                    <Input
+                      autoFocus
+                      placeholder="Scan barcode..."
+                      value={barcodeValue}
+                      onChange={(e) => setBarcodeValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && barcodeValue) {
+                          const found = medicines.find((m) => m.barcode === barcodeValue);
+                          if (found) { addToCart(found); setBarcodeValue(""); toast.success(`${found.name} added`); }
+                          else toast.error("Medicine not found for this barcode");
+                        }
+                      }}
+                      className="w-48"
+                    />
+                  </div>
+                )}
+              </div>
              <Button variant="outline" size="icon" aria-label="User">
                <User className="w-4 h-4" />
              </Button>

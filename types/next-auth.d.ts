@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface User {
     role?: string;
     branchId?: string | null;
+    businessType?: string;
   }
 
   interface Session {
@@ -15,6 +16,7 @@ declare module "next-auth" {
       image?: string | null;
       role?: string;
       branchId?: string | null;
+      businessType?: string;
     };
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: string;
     branchId?: string | null;
+    businessType?: string;
   }
 }

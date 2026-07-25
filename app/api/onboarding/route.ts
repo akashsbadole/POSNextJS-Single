@@ -15,12 +15,24 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    await req.json();
-    await prisma.setting.upsert({
-      where: { key: "onboarding_completed" },
-      update: { value: "true" },
-      create: { key: "onboarding_completed", value: "true", category: "GENERAL", description: "Onboarding wizard completed" },
-    });
+    const { businessType, store_name, gst_number, phone, address } = await req.json();
+
+    const settings = [
+      { key: "business_type", value: businessType, category: "GENERAL" },
+      { key: "store_name", value: store_name, category: "GENERAL" },
+      { key: "gst_number", value: gst_number || "", category: "TAX" },
+      { key: "phone", value: phone || "", category: "GENERAL" },
+      { key: "address", value: address || "", category: "GENERAL" },
+      { key: "onboarding_complete", value: "true", category: "GENERAL" },
+    ];
+
+    for (const s of settings) {
+      await prisma.setting.upsert({
+        where: { key: s.key },
+        update: { value: s.value, category: s.category },
+        create: { key: s.key, value: s.value, category: s.category },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

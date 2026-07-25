@@ -21,12 +21,23 @@ export default function OTPVerifyPage() {
       return;
     }
     setLoading(true);
-    // ponytail: wire to SMS API
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send OTP");
+      }
       setStep("otp");
-      setLoading(false);
       toast.success("OTP sent to " + phone);
-    }, 1000);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerify = async () => {
@@ -36,12 +47,23 @@ export default function OTPVerifyPage() {
       return;
     }
     setLoading(true);
-    // ponytail: wire to /api/auth/verify-otp
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, otp: code }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Invalid OTP");
+      }
       toast.success("Verified successfully!");
       router.push("/login");
-    }, 1000);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {

@@ -3,13 +3,20 @@ import { withAuth } from "next-auth/middleware";
 import { authOptions } from "@/lib/auth";
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    // Role-based access control
+    if (path === "/onboarding" || path === "/favicon.ico" || path.startsWith("/_next/")) {
+      return NextResponse.next();
+    }
+
+    if (path.startsWith("/api/")) {
+      return NextResponse.next();
+    }
+
     const roleRoutes: Record<string, string[]> = {
-      OWNER: ["/dashboard", "/inventory", "/prescriptions", "/pos", "/sales", "/purchases", "/reports", "/users", "/admin", "/online-store", "/subscriptions", "/analytics", "/telemedicine"],
+      OWNER: ["/dashboard", "/inventory", "/prescriptions", "/pos", "/sales", "/purchases", "/reports", "/users", "/admin", "/online-store", "/subscriptions", "/analytics", "/telemedicine", "/accounting"],
       MANAGER: ["/dashboard", "/inventory", "/prescriptions", "/pos", "/sales", "/purchases", "/reports", "/online-store"],
       PHARMACIST: ["/dashboard", "/inventory", "/prescriptions", "/pos", "/sales"],
       CASHIER: ["/dashboard", "/pos", "/sales/invoices"],
@@ -30,8 +37,10 @@ export default withAuth(
     pages: authOptions.pages,
     callbacks: {
       authorized({ req, token }) {
-        if (req.nextUrl.pathname.startsWith("/api/auth")) return true;
-        if (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/register" || req.nextUrl.pathname === "/forgot-password" || req.nextUrl.pathname === "/otp-verify") return true;
+        const path = req.nextUrl.pathname;
+        if (path.startsWith("/api/auth")) return true;
+        if (["/login", "/register", "/forgot-password", "/otp-verify", "/onboarding"].includes(path)) return true;
+        if (path.startsWith("/api/onboarding")) return true;
         return token !== null;
       },
     },

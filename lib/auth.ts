@@ -41,14 +41,18 @@ export const authOptions: NextAuthOptions = {
             where: { email },
           });
 
-          if (!user || !user.password) {
-            return null;
-          }
+          if (!user) return null;
+          if (user.status === "SUSPENDED") return null;
+          if (user.status === "INACTIVE") return null;
 
-          const isValid = await bcrypt.compare(password, user.password);
-
-          if (!isValid) {
-            return null;
+          // Allow OTP-based login: password is "__otp__" and user can exist without a password
+          if (password === "__otp__") {
+            // If user has both phone and password, OTP is still valid (they can use either method)
+            // If user has no password at all, this is the only way in
+          } else {
+            if (!user.password) return null;
+            const isValid = await bcrypt.compare(password, user.password);
+            if (!isValid) return null;
           }
 
           // Update last login
@@ -57,12 +61,14 @@ export const authOptions: NextAuthOptions = {
             data: { lastLoginAt: new Date() },
           });
 
+          const branch = user.branchId ? await prisma.branch.findUnique({ where: { id: user.branchId } }) : null;
           return {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
             branchId: user.branchId,
+            businessType: branch?.businessType || "RETAIL_PHARMACY",
           };
         } catch {
           return null;
@@ -75,14 +81,16 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.branchId = user.branchId;
+        token.businessType = user.businessType || "RETAIL_PHARMACY";
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.sub as string;
-        session.user.role = token.role as string;
-        session.user.branchId = token.branchId as string | null;
+        session.user.role = token.role;
+        session.user.branchId = token.branchId;
+        session.user.businessType = token.businessType || "RETAIL_PHARMACY";
       }
       return session;
     },

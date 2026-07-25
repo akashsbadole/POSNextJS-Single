@@ -131,7 +131,7 @@ export default function AnalyticsPage() {
         <CardContent>
           <div className="h-32 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
             <Sparkles className="w-5 h-5 text-pharmacy-500 mr-2" />
-            <span className="text-gray-500">AI-powered forecast — planned (OpenAI/Gemini not yet wired)</span>
+            <span className="text-gray-500">Sales forecast — coming in a future update</span>
           </div>
         </CardContent>
       </Card>
