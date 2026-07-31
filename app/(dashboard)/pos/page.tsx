@@ -121,6 +121,29 @@ export default function POSPage() {
       med.genericName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const printBill = (invoiceNumber?: string) => {
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) { toast.error("Pop-up blocked — allow pop-ups to print"); return; }
+    const rows = cart
+      .map((item) => `<tr><td>${item.name}</td><td>${item.quantity}</td><td>₹${(item.price * item.quantity).toFixed(2)}</td></tr>`)
+      .join("");
+    win.document.write(`<!doctype html><html><head><title>Bill</title><style>
+      body{font:13px/1.5 monospace;padding:24px;color:#111}
+      h2{margin:0 0 4px}.muted{color:#666;font-size:11px}
+      table{width:100%;border-collapse:collapse;margin:16px 0}
+      th,td{padding:4px 0;text-align:left}td:last-child,th:last-child{text-align:right}
+      tr{border-bottom:1px dashed #ccc}.total{font-weight:bold;font-size:15px}
+      </style></head><body>
+      <h2>PharmacyPro</h2>
+      <div class="muted">${invoiceNumber ? `Invoice: ${invoiceNumber}<br>` : ""}${new Date().toLocaleString()}</div>
+      <table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="muted" style="display:flex;justify-content:space-between"><span>Payment: ${paymentMode.toUpperCase()}</span><span>GST incl.</span></div>
+      <div class="total" style="display:flex;justify-content:space-between;margin-top:8px"><span>Total</span><span>₹${finalAmount.toFixed(2)}</span></div>
+      <script>window.onload=()=>{window.print();}</script>
+      </body></html>`);
+    win.document.close();
+  };
+
   const handleGenerateInvoice = async () => {
     if (cart.length === 0) {
       toast.error("Cart is empty");
@@ -147,7 +170,9 @@ export default function POSPage() {
         const err = await res.json();
         throw new Error(err.error || "Failed to create sale");
       }
+      const sale = await res.json();
       toast.success("Invoice generated successfully!");
+      printBill(sale.invoiceNumber);
       setCart([]);
       setDiscountType("none");
       setDiscountValue(0);
@@ -194,7 +219,7 @@ export default function POSPage() {
                   </div>
                 )}
               </div>
-             <Button variant="outline" size="icon" aria-label="User">
+             <Button variant="outline" size="icon" aria-label="User" onClick={() => session?.user?.name && toast.success(`Logged in as ${session.user.name}`)}>
                <User className="w-4 h-4" />
              </Button>
            </div>
@@ -366,7 +391,7 @@ export default function POSPage() {
             {submitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Receipt className="w-5 h-5 mr-2" />}
             {submitting ? "Processing..." : "Generate Invoice"}
           </Button>
-          <Button variant="outline" className="w-full" disabled={cart.length === 0}>
+          <Button variant="outline" className="w-full" disabled={cart.length === 0} onClick={() => printBill()}>
             <Printer className="w-4 h-4 mr-2" />
             Print Bill
           </Button>

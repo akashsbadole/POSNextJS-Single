@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
         mrp: m.mrp,
         discount,
         prescription: m.isPrescriptionRequired,
+        gstRate: m.gstRate,
         image: "",
         stock,
       };

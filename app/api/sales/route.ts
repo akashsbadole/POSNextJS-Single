@@ -16,6 +16,16 @@ export async function POST(req: NextRequest) {
     if (items.some((i: { quantity?: number }) => !Number.isInteger(i.quantity) || (i.quantity ?? 0) <= 0)) {
       return NextResponse.json({ error: "Item quantities must be positive integers" }, { status: 400 });
     }
+    if (discountType && !["percentage", "flat"].includes(discountType)) {
+      return NextResponse.json({ error: "discountType must be percentage or flat" }, { status: 400 });
+    }
+    if (discountValue < 0 || (discountType === "percentage" && discountValue > 100)) {
+      return NextResponse.json({ error: "Invalid discount value" }, { status: 400 });
+    }
+    if (paymentMode && !["cash", "card", "upi", "credit"].includes(paymentMode.toLowerCase())) {
+      return NextResponse.json({ error: "Invalid payment mode" }, { status: 400 });
+    }
+    const mode = paymentMode ? paymentMode.toLowerCase() : "cash";
     const cashierId = session.user.id;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -40,7 +50,14 @@ export async function POST(req: NextRequest) {
         }
 
         const picks = await pickBatchFEFO(item.medicineId, branchId, item.quantity, tx);
-        batchPicksMap.set(item.medicineId, picks);
+        // ponytail: merge picks per medicine — duplicate lines in one bill must decrement each batch once
+        const existing = batchPicksMap.get(item.medicineId) || [];
+        const byBatch = new Map(existing.map((p) => [p.batchId, p]));
+        for (const p of picks) {
+          const prev = byBatch.get(p.batchId);
+          byBatch.set(p.batchId, prev ? { ...prev, pickQty: prev.pickQty + p.pickQty } : p);
+        }
+        batchPicksMap.set(item.medicineId, [...byBatch.values()]);
         const itemTotal = medicine.sellingPrice * item.quantity;
         subtotal += itemTotal;
         itemTotals.push(itemTotal);
@@ -88,7 +105,7 @@ export async function POST(req: NextRequest) {
       const finalAmount = Math.round(totalAmount);
       const roundOff = finalAmount - totalAmount;
 
-      const paymentStatus = paymentMode === "credit" ? "PENDING" : "PAID";
+      const paymentStatus = mode === "credit" ? "PENDING" : "PAID";
       const invoiceNumber = await generateInvoiceNumber("INV");
 
       const sale = await tx.sale.create({
@@ -109,7 +126,7 @@ export async function POST(req: NextRequest) {
           totalAmount,
           roundOff,
           finalAmount,
-          paymentMode,
+          paymentMode: mode,
           paymentStatus,
           items: {
             create: saleItemsData,
@@ -117,7 +134,7 @@ export async function POST(req: NextRequest) {
           payments: {
             create: {
               amount: finalAmount,
-              mode: paymentMode,
+              mode,
               status: paymentStatus,
             },
           },

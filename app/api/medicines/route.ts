@@ -132,7 +132,7 @@ export async function PUT(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { id, ...updateData } = body;
+    const { id, branchId, ...updateData } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -141,6 +141,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const validated = medicineSchema.partial().parse(updateData);
     const existing = await prisma.medicine.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json(
@@ -151,11 +152,17 @@ export async function PUT(req: NextRequest) {
 
     const medicine = await prisma.medicine.update({
       where: { id },
-      data: updateData,
+      data: validated,
     });
 
     return NextResponse.json(medicine);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation failed", details: error.errors },
+        { status: 400 }
+      );
+    }
     console.error("Error updating medicine:", error);
     return NextResponse.json(
       { error: "Failed to update medicine" },

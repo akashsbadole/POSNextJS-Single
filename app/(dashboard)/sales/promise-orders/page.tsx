@@ -29,8 +29,11 @@ interface PromiseOrder {
   notes?: string | null;
 }
 
+interface Medicine { id: string; name: string; }
+
 export default function PromiseOrdersPage() {
   const [orders, setOrders] = useState<PromiseOrder[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,6 +55,10 @@ export default function PromiseOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+    fetch("/api/medicines?limit=100")
+      .then((r) => r.json())
+      .then((d) => setMedicines(d.medicines || []))
+      .catch(() => toast.error("Failed to load medicines"));
   }, []);
 
   const handleCreate = async () => {
@@ -156,8 +163,20 @@ export default function PromiseOrdersPage() {
               <Input id="customerPhone" value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="medicine">Medicine</Label>
+              <select
+                id="medicine"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={form.medicineId}
+                onChange={(e) => setForm({ ...form, medicineId: e.target.value })}
+              >
+                <option value="">Select a medicine</option>
+                {medicines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="quantity">Quantity</Label>
-              <Input id="quantity" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value || "1") })} />
+              <Input id="quantity" type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value || "1") })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

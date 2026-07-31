@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [twoFAToken, setTwoFAToken] = useState("");
+  const [twoFAEmail, setTwoFAEmail] = useState("");
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,14 +36,16 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      if (result?.error === "2FA_REQUIRED") {
+        setTwoFAEmail(email);
+        setShow2FA(true);
+        return;
+      }
       if (result?.error) {
         toast.error("Invalid email or password");
       } else {
         const local = getLocalCart();
         for (const item of local) upsertCartItem(item.medicineId, item.quantity);
-        const statusRes = await fetch(`/api/auth/2fa/status?email=${encodeURIComponent(email)}`);
-        const { enabled } = await statusRes.json();
-        if (enabled) { setShow2FA(true); setIsLoading(false); return; }
         toast.success("Login successful!");
         router.push("/dashboard");
         router.refresh();
@@ -96,7 +99,12 @@ export default function LoginPage() {
       const email = data.user?.email;
       const otpToken = data.otpToken;
       if (email && otpToken) {
-        await signIn("credentials", { email, password: `__otp__:${otpToken}` });
+        const result = await signIn("credentials", { email, password: `__otp__:${otpToken}`, redirect: false });
+        if (result?.error === "2FA_REQUIRED") {
+          setTwoFAEmail(email);
+          setShow2FA(true);
+          return;
+        }
       }
       toast.success("Login successful!");
       router.push("/dashboard");
@@ -114,9 +122,16 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/2fa/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, token: twoFAToken }),
+        body: JSON.stringify({ email: twoFAEmail, token: twoFAToken }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Invalid code"); }
+      const { otpToken } = await res.json();
+      const result = await signIn("credentials", {
+        email: twoFAEmail,
+        password: `__2fa__:${otpToken}`,
+        redirect: false,
+      });
+      if (result?.error) throw new Error(result.error);
       toast.success("Login successful!");
       router.push("/dashboard");
       router.refresh();

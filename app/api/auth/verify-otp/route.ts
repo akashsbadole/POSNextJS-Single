@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyOTP } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 import { createOTPToken } from "@/lib/otp-token";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const { phone, otp } = await req.json();
     if (!phone || !otp) {
       return NextResponse.json({ error: "Phone and OTP required" }, { status: 400 });
+    }
+
+    if (!(await checkRateLimit(`verify-otp:${phone}`, 5, 10 * 60 * 1000))) {
+      return NextResponse.json({ error: "Too many attempts" }, { status: 429 });
     }
 
     const result = await verifyOTP(phone, otp);

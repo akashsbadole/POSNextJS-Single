@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchInput } from "@/components/ui/search-input";
+import { Input } from "@/components/ui/input";
 import {
   Plus,
   Edit,
@@ -31,13 +32,18 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [modal, setModal] = useState<{ id?: string; name: string; contactPerson: string; email: string; phone: string; address: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = () =>
     fetch("/api/suppliers")
       .then((r) => r.json())
       .then(setSuppliers)
       .catch(() => toast.error("Failed to load suppliers"))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    load();
   }, []);
 
   const filtered = suppliers.filter(
@@ -46,6 +52,34 @@ export default function SuppliersPage() {
       (s.email || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleSave = async () => {
+    if (!modal || !modal.name.trim()) { toast.error("Name is required"); return; }
+    setSaving(true);
+    try {
+      const body = { name: modal.name, contactPerson: modal.contactPerson, email: modal.email, phone: modal.phone, address: modal.address };
+      const res = await fetch("/api/suppliers", {
+        method: modal.id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(modal.id ? { id: modal.id, ...body } : body),
+      });
+      if (!res.ok) throw new Error("Failed to save supplier");
+      toast.success(modal.id ? "Supplier updated" : "Supplier created");
+      setModal(null);
+      load();
+    } catch { toast.error("Failed to save supplier"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (s: Supplier) => {
+    if (!confirm(`Delete supplier "${s.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/suppliers?id=${s.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete supplier");
+      toast.success("Supplier deleted");
+      load();
+    } catch { toast.error("Failed to delete supplier"); }
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -53,7 +87,7 @@ export default function SuppliersPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage your suppliers and distributors</p>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setModal({ name: "", contactPerson: "", email: "", phone: "", address: "" })}>
           <Plus className="w-4 h-4 mr-2" />
           Add Supplier
         </Button>
@@ -113,10 +147,10 @@ export default function SuppliersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit">
+                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit" onClick={() => setModal({ id: s.id, name: s.name, contactPerson: s.contactPerson || "", email: s.email || "", phone: s.phone || "", address: s.address || "" })}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" aria-label="Delete">
+                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" aria-label="Delete" onClick={() => handleDelete(s)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -135,6 +169,38 @@ export default function SuppliersPage() {
           )}
         </CardContent>
       </Card>
+
+      {modal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => setModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">{modal.id ? "Edit Supplier" : "Add Supplier"}</h3>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Name</label>
+              <Input value={modal.name} onChange={(e) => setModal({ ...modal, name: e.target.value })} placeholder="e.g. MediCorp" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Contact Person</label>
+              <Input value={modal.contactPerson} onChange={(e) => setModal({ ...modal, contactPerson: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={modal.email} onChange={(e) => setModal({ ...modal, email: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Phone</label>
+              <Input value={modal.phone} onChange={(e) => setModal({ ...modal, phone: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Address</label>
+              <Input value={modal.address} onChange={(e) => setModal({ ...modal, address: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setModal(null)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

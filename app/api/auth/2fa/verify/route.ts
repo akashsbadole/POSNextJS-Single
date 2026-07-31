@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyToken } from "@/lib/totp";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createOTPToken } from "@/lib/otp-token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid 2FA code" }, { status: 401 });
     }
 
-    return NextResponse.json({ success: true });
+    const otpToken = await createOTPToken(user.id, user.email, "2fa-login");
+    return NextResponse.json({ success: true, otpToken });
   } catch (error) {
     console.error("2FA verify error:", error);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });

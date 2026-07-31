@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchInput } from "@/components/ui/search-input";
+import { Input } from "@/components/ui/input";
 import {
   Plus,
   Edit,
@@ -20,31 +21,67 @@ import { toast } from "sonner";
 interface Doctor {
   id: string;
   name: string;
-  specialization: string | null;
+  specialty: string | null;
   phone: string | null;
   email: string | null;
-  licenseNumber: string | null;
-  isActive: boolean;
+  rmpNumber: string | null;
+  isVerified: boolean;
 }
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [modal, setModal] = useState<{ id?: string; name: string; specialty: string; phone: string; email: string; rmpNumber: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = () =>
     fetch("/api/doctors")
       .then((r) => r.json())
       .then(setDoctors)
       .catch(() => toast.error("Failed to load doctors"))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    load();
   }, []);
 
   const filtered = doctors.filter(
     (d) => d.name.toLowerCase().includes(search.toLowerCase()) ||
-      (d.specialization || "").toLowerCase().includes(search.toLowerCase()) ||
+      (d.specialty || "").toLowerCase().includes(search.toLowerCase()) ||
       (d.email || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleSave = async () => {
+    if (!modal || !modal.name.trim()) { toast.error("Name is required"); return; }
+    setSaving(true);
+    try {
+      const body = { name: modal.name, specialty: modal.specialty, phone: modal.phone, email: modal.email, rmpNumber: modal.rmpNumber };
+      const res = await fetch("/api/doctors", {
+        method: modal.id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(modal.id ? { id: modal.id, ...body } : body),
+      });
+      if (!res.ok) throw new Error("Failed to save doctor");
+      toast.success(modal.id ? "Doctor updated" : "Doctor added");
+      setModal(null);
+      load();
+    } catch { toast.error("Failed to save doctor"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (d: Doctor) => {
+    if (!confirm(`Delete doctor "${d.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/doctors?id=${d.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete doctor");
+      }
+      toast.success("Doctor deleted");
+      load();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed to delete doctor"); }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -53,7 +90,7 @@ export default function DoctorsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Doctors</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage referring doctors and practitioners</p>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setModal({ name: "", specialty: "", phone: "", email: "", rmpNumber: "" })}>
           <Plus className="w-4 h-4 mr-2" />
           Add Doctor
         </Button>
@@ -102,8 +139,8 @@ export default function DoctorsPage() {
                         <span className="font-medium">{d.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{d.specialization || "General"}</TableCell>
-                    <TableCell className="text-xs font-mono">{d.licenseNumber || "—"}</TableCell>
+                    <TableCell>{d.specialty || "General"}</TableCell>
+                    <TableCell className="text-xs font-mono">{d.rmpNumber || "—"}</TableCell>
                     <TableCell>
                       <div className="flex flex-col text-xs">
                         {d.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{d.email}</span>}
@@ -111,16 +148,16 @@ export default function DoctorsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={d.isActive ? "success" : "secondary"}>
-                        {d.isActive ? "Active" : "Inactive"}
+                      <Badge variant={d.isVerified ? "success" : "secondary"}>
+                        {d.isVerified ? "Verified" : "Unverified"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit">
+                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit" onClick={() => setModal({ id: d.id, name: d.name, specialty: d.specialty || "", phone: d.phone || "", email: d.email || "", rmpNumber: d.rmpNumber || "" })}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" aria-label="Delete">
+                        <Button variant="ghost" size="icon" className="w-8 h-8 text-red-500" aria-label="Delete" onClick={() => handleDelete(d)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -139,6 +176,38 @@ export default function DoctorsPage() {
           )}
         </CardContent>
       </Card>
+
+      {modal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => setModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">{modal.id ? "Edit Doctor" : "Add Doctor"}</h3>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Name</label>
+              <Input value={modal.name} onChange={(e) => setModal({ ...modal, name: e.target.value })} placeholder="Dr. Name" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Specialty</label>
+              <Input value={modal.specialty} onChange={(e) => setModal({ ...modal, specialty: e.target.value })} placeholder="e.g. Cardiologist" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">RMP Number</label>
+              <Input value={modal.rmpNumber} onChange={(e) => setModal({ ...modal, rmpNumber: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Phone</label>
+              <Input value={modal.phone} onChange={(e) => setModal({ ...modal, phone: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={modal.email} onChange={(e) => setModal({ ...modal, email: e.target.value })} placeholder="Optional" />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setModal(null)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

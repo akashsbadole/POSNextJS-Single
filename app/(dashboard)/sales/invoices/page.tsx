@@ -26,7 +26,7 @@ interface Sale {
   createdAt: string;
   patient: { name: string } | null;
   cashier: { name: string };
-  items: { quantity: number; medicine: { name: string } }[];
+  items: { quantity: number; unitPrice: number; totalAmount: number; medicine: { name: string } }[];
 }
 
 export default function InvoicesPage() {
@@ -203,7 +203,7 @@ export default function InvoicesPage() {
                     <tr key={i} className="border-b last:border-0">
                       <td className="py-1">{it.medicine.name}</td>
                       <td className="text-right py-1">{it.quantity}</td>
-                      <td className="text-right py-1">—</td>
+                      <td className="text-right py-1">₹{(it.totalAmount ?? it.unitPrice * it.quantity).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -218,7 +218,7 @@ export default function InvoicesPage() {
 }
 
 function getInvoiceHTML(s: Sale): string {
-  const items = s.items.map((it, i) => `<tr${i % 2 ? ' style="background:#f9fafb"' : ""}><td style="padding:6px">${it.medicine.name}</td><td style="padding:6px;text-align:right">${it.quantity}</td><td style="padding:6px;text-align:right">—</td></tr>`).join("");
+  const items = s.items.map((it, i) => `<tr${i % 2 ? ' style="background:#f9fafb"' : ""}><td style="padding:6px">${it.medicine.name}</td><td style="padding:6px;text-align:right">${it.quantity}</td><td style="padding:6px;text-align:right">₹${(it.totalAmount ?? it.unitPrice * it.quantity).toFixed(2)}</td></tr>`).join("");
   return `<html><head><title>Invoice</title><style>body{font-family:sans-serif;padding:40px;max-width:700px;margin:auto}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ddd}th{text-align:left}.right{text-align:right}.center{text-align:center}.header{margin-bottom:20px}@media print{body{padding:20px}}</style></head><body>
     <div class="header center"><h1>PharmacyPro</h1><p style="color:#666">GST Invoice</p><p style="font-family:monospace;font-size:13px">${s.invoiceNumber}</p></div>
     <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:20px">

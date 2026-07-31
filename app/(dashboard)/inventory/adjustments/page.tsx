@@ -32,7 +32,19 @@ export default function AdjustmentsPage() {
       .then((d) => setItems(d.inventory || []))
       .catch(() => toast.error("Failed to load inventory"))
       .finally(() => setLoading(false));
+    loadHistory();
   }, []);
+
+  const loadHistory = async () => {
+    try {
+      const r = await fetch("/api/audit-logs?entityType=inventory&action=ADJUST&limit=100");
+      const d = await r.json();
+      setHistory((d.logs || []).map((l: { createdAt: string; newData: string }) => {
+        const j = JSON.parse(l.newData || "{}");
+        return { medicine: j.medicine || "—", type: j.change >= 0 ? "increase" : "decrease", qty: Math.abs(j.change), reason: j.reason || "", date: l.createdAt };
+      }));
+    } catch { /* history is best-effort */ }
+  };
 
   const filtered = items.filter((it) =>
     it.medicine.name.toLowerCase().includes(search.toLowerCase())
@@ -46,13 +58,14 @@ export default function AdjustmentsPage() {
     try {
       const res = await fetch("/api/inventory", {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selected.id, quantity: newQty }),
+        body: JSON.stringify({ id: selected.id, quantity: newQty, reason }),
       });
       if (!res.ok) throw new Error("Failed to adjust");
       toast.success(`Stock ${adjType}d by ${adjQty}`);
       setShowForm(false);
-      setHistory([{ medicine: selected.medicine.name, type: adjType, qty: adjQty, reason, date: new Date().toISOString() }, ...history]);
+      setReason("");
       setItems(items.map((it) => it.id === selected.id ? { ...it, quantity: newQty } : it));
+      loadHistory();
     } catch { toast.error("Failed to adjust stock"); }
     finally { setSaving(false); }
   };

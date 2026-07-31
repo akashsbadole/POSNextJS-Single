@@ -14,7 +14,7 @@ export default function InventoryReportsPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
 
   useEffect(() => {
-    fetch("/api/medicines?limit=50")
+    fetch("/api/medicines?limit=1000")
       .then((r) => r.json())
       .then((d) => setMedicines(d.medicines || []))
       .catch(() => toast.error("Failed to load inventory data"))

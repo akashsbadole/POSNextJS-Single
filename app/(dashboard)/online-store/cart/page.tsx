@@ -24,7 +24,7 @@ function loadRazorpay(): Promise<void> {
   });
 }
 
-interface CartItem { id: string; name: string; price: number; quantity: number; prescription: boolean; }
+interface CartItem { id: string; name: string; price: number; quantity: number; prescription: boolean; gstRate: number; }
 
 export default function CartPage() {
   const { data: session } = useSession();
@@ -49,11 +49,11 @@ export default function CartPage() {
       try {
         const r = await fetch(`/api/online-store/products?${qs.toString()}&limit=100`);
         const d = await r.json();
-        const map = new Map<string, { id: string; name: string; price: number; prescription: boolean }>((d.products || []).map((p: { id: string; name: string; price: number; prescription: boolean }) => [p.id, p]));
+        const map = new Map<string, { id: string; name: string; price: number; prescription: boolean; gstRate: number }>((d.products || []).map((p: { id: string; name: string; price: number; prescription: boolean; gstRate: number }) => [p.id, p]));
         const loaded: CartItem[] = [];
         for (const i of ids) {
           const p = map.get(i.id);
-          if (p) loaded.push({ id: p.id, name: p.name, price: p.price, quantity: i.quantity, prescription: p.prescription });
+          if (p) loaded.push({ id: p.id, name: p.name, price: p.price, quantity: i.quantity, prescription: p.prescription, gstRate: p.gstRate ?? 5 });
         }
         setItems(loaded);
         if (session?.user?.id) for (const item of loaded) upsertCartItem(item.id, item.quantity);
@@ -76,7 +76,7 @@ export default function CartPage() {
   };
 
   const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const gst = total * 0.05;
+  const gst = items.reduce((s, i) => s + (i.price * i.quantity * i.gstRate) / 100, 0);
   const grandTotal = total + gst;
 
   const checkout = async () => {
@@ -181,7 +181,7 @@ export default function CartPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>₹{total.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span className="text-green-600">Free</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">GST (5%)</span><span>₹{gst.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">GST</span><span>₹{gst.toFixed(2)}</span></div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total</span><span>₹{grandTotal.toFixed(2)}</span>
                 </div>

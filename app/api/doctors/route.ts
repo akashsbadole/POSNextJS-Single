@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
@@ -54,5 +55,23 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     console.error("Error updating doctor:", error);
     return NextResponse.json({ error: "Failed to update doctor" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Doctor ID required" }, { status: 400 });
+    await prisma.doctor.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json({ error: "Doctor is referenced by prescriptions and cannot be deleted" }, { status: 409 });
+    }
+    console.error("Error deleting doctor:", error);
+    return NextResponse.json({ error: "Failed to delete doctor" }, { status: 500 });
   }
 }

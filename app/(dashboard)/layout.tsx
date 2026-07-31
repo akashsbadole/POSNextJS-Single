@@ -37,6 +37,9 @@ import {
   Shield,
   Languages,
   ClipboardList,
+  ArrowLeftRight,
+  ScanLine,
+  ShieldCheck,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -70,6 +73,16 @@ const navItems = [
         title: "Bulk Actions",
         href: "/inventory/bulk-actions",
         icon: FileText,
+      },
+      {
+        title: "Transfers",
+        href: "/inventory/transfers",
+        icon: ArrowLeftRight,
+      },
+      {
+        title: "Barcodes",
+        href: "/inventory/barcodes",
+        icon: ScanLine,
       },
     ],
   },
@@ -129,6 +142,7 @@ const navItems = [
     icon: Globe,
     children: [
       { title: "Products", href: "/online-store/products", icon: Package },
+      { title: "Cart", href: "/online-store/cart", icon: ShoppingCart },
       { title: "Orders", href: "/online-store/orders", icon: ShoppingCart },
       { title: "Delivery", href: "/online-store/delivery", icon: Truck },
     ],
@@ -168,6 +182,7 @@ const navItems = [
       { title: "Custom Fields", href: "/admin/custom-fields", icon: FileText },
       { title: "Drug Licenses", href: "/admin/drug-licenses", icon: Shield },
       { title: "Schemes", href: "/admin/schemes", icon: Sparkles },
+      { title: "Two-Factor Auth", href: "/settings/2fa", icon: ShieldCheck },
       {
         title: "Languages",
         href: "/admin/settings?tab=languages",

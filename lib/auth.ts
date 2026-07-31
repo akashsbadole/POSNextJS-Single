@@ -54,10 +54,20 @@ export const authOptions: NextAuthOptions = {
             const token = password.slice(8);
             const payload = await verifyOTPToken(token);
             if (!payload || payload.email !== email) return null;
+          } else if (password.startsWith("__2fa__:")) {
+            const token = password.slice(8);
+            const payload = await verifyOTPToken(token, "2fa-login");
+            if (!payload || payload.email !== email) return null;
           } else {
             if (!user.password) return null;
             const isValid = await bcrypt.compare(password, user.password);
             if (!isValid) return null;
+          }
+
+          // 2FA enforcement: a session is only granted with a 2fa-login token.
+          // The login page catches this error and prompts for the TOTP code.
+          if (user.twoFactorEnabled && !password.startsWith("__2fa__:")) {
+            throw new Error("2FA_REQUIRED");
           }
 
           // Update last login

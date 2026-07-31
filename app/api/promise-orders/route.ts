@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { customerName, customerPhone, medicineId, quantity, notes } = body;
-    if (!customerName || !medicineId || !quantity) {
-      return NextResponse.json({ error: "customerName, medicineId, and quantity are required" }, { status: 400 });
+    if (!customerName || !medicineId || !Number.isInteger(quantity) || quantity <= 0) {
+      return NextResponse.json({ error: "customerName, medicineId, and a positive quantity are required" }, { status: 400 });
     }
     const order = await prisma.promiseOrder.create({ data: { customerName, customerPhone, medicineId, quantity, notes } });
     return NextResponse.json(order, { status: 201 });

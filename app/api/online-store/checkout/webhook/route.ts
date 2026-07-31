@@ -16,46 +16,65 @@ export async function POST(req: NextRequest) {
     }
     const parsed = JSON.parse(body);
     const event = parsed.event;
+    const payload = parsed.payload;
 
     if (event === "payment.captured" || event === "order.paid") {
-      const payload = parsed.payload;
-      const orderId = payload?.payment?.entity?.notes?.orderId
+      const ref = payload?.payment?.entity?.notes?.orderNumber
+        || payload?.payment?.entity?.notes?.orderId
         || payload?.order?.entity?.receipt;
 
-      if (!orderId) {
+      if (!ref) {
         return NextResponse.json({ error: "Missing order reference" }, { status: 400 });
       }
 
       const order = await prisma.onlineOrder.findFirst({
-        where: { OR: [{ id: orderId }, { orderNumber: orderId }] },
+        where: { OR: [{ id: ref }, { orderNumber: ref }] },
       });
 
       if (order && order.paymentStatus !== "PAID") {
         await prisma.$transaction(async (tx) => {
-          await tx.onlineOrder.update({
-            where: { id: order.id },
-            data: { paymentStatus: "PAID", status: "PROCESSING" },
-          });
           const items = await tx.onlineOrderItem.findMany({ where: { orderId: order.id } });
+          // pre-check every line before moving any stock — a shortfall cancels the order with nothing deducted
+          const picks: { inventoryId: string; quantity: number }[] = [];
           for (const item of items) {
-            // ponytail: online orders pick any branch with stock (findFirst). Upgrade path: per-order fulfillment branch.
             const inv = await tx.inventory.findFirst({
               where: { medicineId: item.medicineId, quantity: { gte: item.quantity } },
               orderBy: { quantity: "desc" },
             });
-            if (inv) {
-              await tx.inventory.update({
-                where: { id: inv.id },
-                data: { quantity: { decrement: item.quantity } },
-              });
-            } else {
+            if (!inv) {
               await tx.onlineOrder.update({
                 where: { id: order.id },
                 data: { status: "CANCELLED" },
               });
-              break;
+              return;
             }
+            picks.push({ inventoryId: inv.id, quantity: item.quantity });
           }
+          for (const pick of picks) {
+            await tx.inventory.update({
+              where: { id: pick.inventoryId },
+              data: { quantity: { decrement: pick.quantity } },
+            });
+          }
+          await tx.onlineOrder.update({
+            where: { id: order.id },
+            data: { paymentStatus: "PAID", status: "PROCESSING" },
+          });
+        });
+      }
+    } else if (event === "payment.failed" || event === "order.failed") {
+      const ref = payload?.payment?.entity?.notes?.orderNumber
+        || payload?.payment?.entity?.notes?.orderId
+        || payload?.order?.entity?.receipt;
+      if (!ref) return NextResponse.json({ error: "Missing order reference" }, { status: 400 });
+
+      const order = await prisma.onlineOrder.findFirst({
+        where: { OR: [{ id: ref }, { orderNumber: ref }] },
+      });
+      if (order && order.paymentStatus !== "PAID") {
+        await prisma.onlineOrder.update({
+          where: { id: order.id },
+          data: { paymentStatus: "FAILED", status: "CANCELLED" },
         });
       }
     }
@@ -66,4 +85,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }
-// ponytail: minimal Razorpay webhook — payment.captured / order.paid events only. Stock is deducted here on confirmed payment.
+// ponytail: minimal Razorpay webhook — captured/paid/failed events only. Stock is deducted here on confirmed payment.

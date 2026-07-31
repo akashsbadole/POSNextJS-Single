@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchInput } from "@/components/ui/search-input";
+import { Input } from "@/components/ui/input";
 import {
   Plus, Loader2, User, Shield, Edit, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -18,26 +19,68 @@ interface AppUser {
   createdAt: string; lastLoginAt: string | null;
 }
 
+interface Branch { id: string; name: string; }
+
+const ROLES = ["OWNER", "MANAGER", "PHARMACIST", "CASHIER"];
+
 export default function UsersPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [modal, setModal] = useState<{ id?: string; name: string; email: string; phone: string; password: string; role: string; status: string; branchId: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true);
-    fetch(`/api/users?page=${page}&limit=20`)
+    return fetch(`/api/users?page=${page}&limit=20`)
       .then((r) => r.json())
       .then((d) => { setUsers(d.users); setTotalPages(d.pagination.totalPages); })
       .catch(() => toast.error("Failed to load users"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, [page]);
+
+  useEffect(() => {
+    fetch("/api/branches")
+      .then((r) => r.json())
+      .then(setBranches)
+      .catch(() => {});
+  }, []);
 
   const filtered = users.filter((u) =>
     (u.name || "").toLowerCase().includes(search.toLowerCase()) ||
     (u.email || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleSave = async () => {
+    if (!modal || !modal.name.trim()) { toast.error("Name is required"); return; }
+    if (!modal.id && !modal.password.trim()) { toast.error("Password is required"); return; }
+    setSaving(true);
+    try {
+      const body = {
+        name: modal.name, phone: modal.phone, role: modal.role, branchId: modal.branchId || undefined,
+        ...(modal.id
+          ? { id: modal.id, status: modal.status }
+          : { email: modal.email, password: modal.password }),
+      };
+      const res = await fetch("/api/users", {
+        method: modal.id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save user"); }
+      toast.success(modal.id ? "User updated" : "User created");
+      setModal(null);
+      load();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed to save user"); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -46,7 +89,9 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold">User Management</h1>
           <p className="text-gray-500">Manage system users and their roles</p>
         </div>
-        <Button size="sm"><Plus className="w-4 h-4 mr-2" />Add User</Button>
+        <Button size="sm" onClick={() => setModal({ name: "", email: "", phone: "", password: "", role: "CASHIER", status: "ACTIVE", branchId: "" })}>
+          <Plus className="w-4 h-4 mr-2" />Add User
+        </Button>
       </div>
 
       <Card>
@@ -106,7 +151,7 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="text-xs">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString("en-IN") : "—"}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit">
+                        <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit" onClick={() => setModal({ id: u.id, name: u.name || "", email: u.email || "", phone: u.phone || "", password: "", role: u.role, status: u.status, branchId: "" })}>
                           <Edit className="w-4 h-4" />
                         </Button>
                       </TableCell>
@@ -132,6 +177,71 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {modal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => setModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">{modal.id ? "Edit User" : "Add User"}</h3>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Name</label>
+              <Input value={modal.name} onChange={(e) => setModal({ ...modal, name: e.target.value })} />
+            </div>
+            {!modal.id && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Email</label>
+                  <Input type="email" value={modal.email} onChange={(e) => setModal({ ...modal, email: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Password</label>
+                  <Input type="password" value={modal.password} onChange={(e) => setModal({ ...modal, password: e.target.value })} placeholder="Min 6 characters" />
+                </div>
+              </>
+            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Phone</label>
+              <Input value={modal.phone} onChange={(e) => setModal({ ...modal, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="10 digits" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Role</label>
+              <select
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={modal.role}
+                onChange={(e) => setModal({ ...modal, role: e.target.value })}
+              >
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            {modal.id && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={modal.status}
+                  onChange={(e) => setModal({ ...modal, status: e.target.value })}
+                >
+                  {["ACTIVE", "SUSPENDED", "INACTIVE"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Branch</label>
+              <select
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={modal.branchId}
+                onChange={(e) => setModal({ ...modal, branchId: e.target.value })}
+              >
+                <option value="">No branch</option>
+                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setModal(null)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

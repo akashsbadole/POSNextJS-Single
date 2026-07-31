@@ -53,6 +53,26 @@ export async function GET(req: NextRequest) {
       groups.get(key)!.push(item);
     }
 
+    // ponytail: naive dedupe — skip any medicine that already has an open auto-reorder PO, so repeated cron runs don't stack POs
+    const medicineIds = lowStock.map((i) => i.medicineId);
+    const openPOItems = await prisma.purchaseOrderItem.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        po: { status: { in: ["DRAFT", "PENDING", "ORDERED"] } },      },
+      select: { medicineId: true },
+      distinct: ["medicineId"],
+    });
+    const alreadyOrdered = new Set(openPOItems.map((i) => i.medicineId));
+    for (const [key, items] of groups) {
+      groups.set(key, items.filter((i) => !alreadyOrdered.has(i.medicineId)));
+    }
+    for (const key of [...groups.keys()]) {
+      if (groups.get(key)!.length === 0) groups.delete(key);
+    }
+    if (groups.size === 0) {
+      return NextResponse.json({ created: 0, message: "All low-stock items already have open POs" });
+    }
+
     const createdPOs: { poId: string; poNumber: string; items: number }[] = [];
     const notifications: { userId: string; message: string }[] = [];
 

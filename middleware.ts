@@ -39,7 +39,7 @@ export default withAuth(
       authorized({ req, token }) {
         const path = req.nextUrl.pathname;
         if (path.startsWith("/api/auth")) return true;
-        if (["/login", "/register", "/forgot-password", "/otp-verify", "/onboarding"].includes(path)) return true;
+        if (["/login", "/register", "/forgot-password", "/otp-verify", "/onboarding", "/reset-password"].includes(path)) return true;
         if (path.startsWith("/api/onboarding")) return true;
         // external callers authenticate via their own secret checks (cron, Razorpay, Meta)
         if (path.startsWith("/api/cron")) return true;

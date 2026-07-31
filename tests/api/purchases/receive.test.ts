@@ -6,6 +6,7 @@ const po = {
   id: "po1",
   poNumber: "PO-001",
   status: "PENDING",
+  branchId: "b1",
   items: [{ id: "item1", medicineId: "m1", quantity: 10, unitPrice: 20, medicine: { mrp: 25, name: "Paracetamol" } }],
 };
 
@@ -55,6 +56,14 @@ describe("Purchase Receive API", () => {
     const { res } = await expectStatus(POST, createRequest("/api/purchases/receive", {
       method: "POST",
       body: { orderId: "po1", branchId: "b1", items: [{ medicineId: "m2", quantity: 5 }] },
+    }), 400);
+  });
+
+  it("rejects receiving into a different branch than the PO", async () => {
+    prismaMock.purchaseOrder.findUnique.mockResolvedValue(po as never);
+    const { res } = await expectStatus(POST, createRequest("/api/purchases/receive", {
+      method: "POST",
+      body: { orderId: "po1", branchId: "b2", items: [{ medicineId: "m1", quantity: 10 }] },
     }), 400);
   });
 

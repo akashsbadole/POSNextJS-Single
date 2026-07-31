@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
+const ORDER_STATUSES = ["PENDING", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "FAILED"];
+
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
   if (!session) return unauthorized();
@@ -62,7 +64,12 @@ export async function PATCH(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "Order id required" }, { status: 400 });
 
     const update: Record<string, unknown> = {};
-    if (status) update.status = status;
+    if (status) {
+      if (!ORDER_STATUSES.includes(status)) {
+        return NextResponse.json({ error: "Invalid order status" }, { status: 400 });
+      }
+      update.status = status;
+    }
     if (trackingNumber) update.trackingNumber = trackingNumber;
     if (courierPartner) update.courierPartner = courierPartner;
 

@@ -139,6 +139,23 @@ export default function BulkActionsPage() {
         downloadCSV(filename, ["name", "contact", "phone", "email", "gstin"],
           sups.map((s: Record<string, unknown>) => [s.name, s.contactPerson || "", s.phone || "", s.email || "", s.gstin || ""])
         );
+      } else if (label === "Sales Report") {
+        const sRes = await fetch("/api/sales?limit=10000");
+        const sData = await sRes.json();
+        const sales = sData.sales ?? [];
+        downloadCSV(filename, ["invoiceNumber", "date", "patient", "items", "paymentMode", "paymentStatus", "finalAmount"],
+          sales.map((s: Record<string, unknown>) => [
+            s.invoiceNumber, String(s.createdAt ?? ""),
+            (s.patient as Record<string, unknown>)?.name ?? "",
+            String((s.items as unknown[])?.length ?? 0),
+            s.paymentMode, s.paymentStatus, String(s.finalAmount),
+          ])
+        );
+      } else if (label === "Low Stock Report") {
+        downloadCSV(filename, ["name", "stock", "reorderLevel"],
+          list.filter((m: Record<string, unknown>) => ((m.inventories as Record<string, unknown>[])?.[0]?.quantity ?? 0) <= (m.reorderLevel ?? 10))
+            .map((m: Record<string, unknown>) => [m.name, String((m.inventories as Record<string, unknown>[])?.[0]?.quantity ?? 0), String(m.reorderLevel ?? 10)])
+        );
       } else if (label === "Patient") {
         const patRes = await fetch("/api/patients");
         const patData = await patRes.json();

@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     if (po.status === "RECEIVED") {
       return NextResponse.json({ error: "This purchase order was already received" }, { status: 400 });
     }
+    if (!branchId || branchId !== po.branchId) {
+      return NextResponse.json({ error: "Goods must be received into the PO's branch" }, { status: 400 });
+    }
 
     const poItemsByMedicine = new Map(po.items.map((i) => [i.medicineId, i]));
 
@@ -31,6 +34,15 @@ export async function POST(req: NextRequest) {
       const qty = Number(item.quantity);
       if (!Number.isInteger(qty) || qty <= 0 || qty > line.quantity) {
         return NextResponse.json({ error: `Invalid quantity for ${line.medicine.name || line.medicineId}` }, { status: 400 });
+      }
+      if (item.expiryDate) {
+        const expiry = new Date(item.expiryDate);
+        if (Number.isNaN(expiry.getTime())) {
+          return NextResponse.json({ error: `Invalid expiry date for ${line.medicine.name || line.medicineId}` }, { status: 400 });
+        }
+        if (expiry.getTime() <= Date.now()) {
+          return NextResponse.json({ error: `Expiry date must be in the future for ${line.medicine.name || line.medicineId}` }, { status: 400 });
+        }
       }
     }
 
