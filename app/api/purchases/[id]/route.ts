@@ -10,6 +10,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const action = body.action || "pay";
+
+    if (action === "eway") {
+      const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+      if (!po) return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
+      if (session.user.branchId && session.user.role !== "OWNER" && po.branchId !== session.user.branchId) {
+        return NextResponse.json({ error: "PO belongs to another branch" }, { status: 403 });
+      }
+      const updated = await prisma.purchaseOrder.update({
+        where: { id },
+        data: {
+          transporterName: body.transporterName || null,
+          transporterVehicleNo: body.transporterVehicleNo || null,
+          distanceKm: body.distanceKm != null && Number.isInteger(Number(body.distanceKm)) && Number(body.distanceKm) > 0 ? Number(body.distanceKm) : null,
+          ewayBillNo: body.ewayBillNo || null,
+          ewayBillExpiry: body.ewayBillExpiry ? new Date(body.ewayBillExpiry) : null,
+        },
+      });
+      return NextResponse.json(updated);
+    }
+
     if (action !== "pay") return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 
     const amount = Number(body.amount);

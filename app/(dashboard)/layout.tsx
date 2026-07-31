@@ -130,6 +130,7 @@ const navItems = [
       { title: "GRN", href: "/purchases/grn", icon: Package },
       { title: "Payments", href: "/purchases/payments", icon: DollarSign },
       { title: "Returns", href: "/purchases/returns", icon: ArrowUpLeft },
+      { title: "E-Way Bills", href: "/purchases/eway", icon: Truck },
     ],
   },
   {

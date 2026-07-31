@@ -649,6 +649,12 @@ model PurchaseOrder {
 
   expectedDeliveryDate DateTime? @map("expected_delivery_date")
 
+  transporterName     String?  @map("transporter_name")
+  transporterVehicleNo String? @map("transporter_vehicle_no")
+  distanceKm          Int?     @map("distance_km")
+  ewayBillNo          String?  @map("eway_bill_no")
+  ewayBillExpiry      DateTime? @map("eway_bill_expiry")
+
   notes       String?
 
   createdAt   DateTime       @default(now()) @map("created_at")
