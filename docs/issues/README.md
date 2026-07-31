@@ -45,6 +45,19 @@ Status legend: ✅ Fixed | 🔴 Not Started | 🟠 In Progress
 | 211 | Uploads: magic-byte sniffing (jpg/png/webp/pdf) | ✅ |
 | 212 | Reset-password whitelisted in middleware; nav links for 2FA/transfers/barcodes; invoice line totals; bulk-actions sales/low-stock exports; adjustments history persisted | ✅ |
 
+## Feature Rollout (Aug 1 — P1–P7)
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 300 | Per-item discounts + global tax-inclusive toggle (P1) | ✅ | `2940ef2`; `calculateGSTInclusive` in lib/utils; POS per-line discount, settings Tax card |
+| 301 | Credit limits + settle flow (P2) | ✅ | `4d4f6f2`; `Patient.creditLimit` gate on sales POST, Mark Paid on invoices, POS patient picker |
+| 302 | Purchase returns (P3) | ✅ | `a48c314`; returns page + API, bounded by received minus already-returned, branch must match |
+| 303 | Double-entry accounting (P4) | ✅ | `39e4d29` + `49a9a7c`; chart of accounts, idempotent `postJournal`, auto-posts (sale, COGS, settle, returns, receipts, supplier pay, expenses), trial balance/P&L/BS/ledger, manual journal (OWNER/ADMIN) |
+| 304 | GST compliance registers (P5) | ✅ | `e9fef22`; GSTR-1 (all B2C), GSTR-2A from received POs, license expiry flags, CSV export |
+| 305 | Salesman management (P6) | ✅ | `e1e1ae3`; commission tracking, POS assignment, deactivate-never-delete |
+| 306 | WhatsApp via paid aggregator (P7) | ✅ | `380e174`; 360dialog/Meta or Twilio, server-side send API + template whitelist, HMAC-SHA256 webhook verification; see `.env.example` |
+| 106 | Split payments | ❌ | Explicitly excluded by user |
+
 ## Remaining Work (new)
 
 | # | Feature | Priority | Phase |
@@ -54,19 +67,10 @@ Status legend: ✅ Fixed | 🔴 Not Started | 🟠 In Progress
 | 103 | Feature gating by business type | 🟠 | Phase 1 |
 | 104 | Barcode scanning in POS | 🟡 | Phase 2 |
 | 105 | Invoice PDF generation + print | 🟡 | Phase 2 |
-| 106 | Split payments | 🟡 | Phase 2 |
-| 107 | Tax inclusive/exclusive toggle | 🟡 | Phase 2 |
-| 108 | Per-item discounts | 🟡 | Phase 2 |
-| 109 | Credit limit management | 🟡 | Phase 2 |
 | 110 | Stock transfer UI | 🟡 | Phase 3 |
-| 111 | Purchase returns | 🟡 | Phase 3 |
 | 112 | Barcode/label printing | 🟡 | Phase 3 |
 | 113 | Rack management | 🟡 | Phase 3 |
 | 114 | GST e-way bill | 🟡 | Phase 4 |
-| 115 | GSTR export format | 🟡 | Phase 4 |
 | 116 | Restricted drug reports | 🟡 | Phase 4 |
-| 117 | Drug license expiry alerts | 🟡 | Phase 4 |
-| 118 | Full accounting system (ledger, P&L, BS) | 🟡 | Phase 5 |
 | 119 | Scheme engine wired to billing | ⚪ | Phase 6 |
-| 120 | Salesman management | ⚪ | Phase 6 |
-| 121 | WhatsApp real integration | ⚪ | Phase 6 |
+| 122 | Accounting backfill of pre-journal history | ⚪ | Decided: start clean (go-live) |
