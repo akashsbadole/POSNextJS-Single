@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber, calculateGST, calculateGSTInclusive } from "@/lib/utils";
 import { pickBatchFEFO } from "@/lib/inventory";
+import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
@@ -192,6 +193,55 @@ export async function POST(req: NextRequest) {
               data: { quantity: { decrement: pick.pickQty } },
             });
           }
+        }
+      }
+
+      // round-off computed against 2dp-rounded components so the journal always balances
+      const rTaxable = Math.round(taxableAmount * 100) / 100;
+      const rCGST = Math.round(totalCGST * 100) / 100;
+      const rSGST = Math.round(totalSGST * 100) / 100;
+      const roundOff = Math.round((finalAmount - rTaxable - rCGST - rSGST) * 100) / 100;
+      await postJournal(tx, {
+        memo: `Sale ${invoiceNumber}`,
+        referenceType: "sale",
+        referenceId: sale.id,
+        createdById: cashierId,
+        lines: [
+          { accountCode: mode === "credit" ? "1100" : "1010", debit: finalAmount, memo: invoiceNumber },
+          { accountCode: "4010", credit: rTaxable },
+          { accountCode: "2020", credit: rCGST },
+          { accountCode: "2030", credit: rSGST },
+          ...(roundOff > 0 ? [{ accountCode: "2090", credit: roundOff }] : roundOff < 0 ? [{ accountCode: "2090", debit: -roundOff }] : []),
+        ],
+      });
+
+      // ponytail: COGS at actual batch purchase price; batches without a recorded
+      // cost (legacy rows) contribute zero until they're replaced by a received batch
+      const pickedBatchIds = [...batchPicksMap.values()].flat().map((p) => p.batchId);
+      if (pickedBatchIds.length > 0) {
+        const costs = await tx.batch.findMany({
+          where: { id: { in: pickedBatchIds } },
+          select: { id: true, purchasePrice: true },
+        });
+        const priceById = new Map(costs.map((c) => [c.id, c.purchasePrice]));
+        let cogs = 0;
+        for (const picks of batchPicksMap.values()) {
+          for (const pick of picks) {
+            const price = priceById.get(pick.batchId);
+            if (price != null) cogs += price * pick.pickQty;
+          }
+        }
+        if (cogs > 0) {
+          await postJournal(tx, {
+            memo: `COGS Sale ${invoiceNumber}`,
+            referenceType: "sale_cogs",
+            referenceId: sale.id,
+            createdById: cashierId,
+            lines: [
+              { accountCode: "5010", debit: Math.round(cogs * 100) / 100 },
+              { accountCode: "1200", credit: Math.round(cogs * 100) / 100 },
+            ],
+          });
         }
       }
 

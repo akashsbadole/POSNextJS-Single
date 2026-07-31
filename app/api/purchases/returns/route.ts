@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
@@ -150,6 +151,19 @@ export async function POST(req: NextRequest) {
           entityId: created.id,
           newData: JSON.stringify({ returnNumber: created.returnNumber, items: returnItems }),
         },
+      });
+
+      await postJournal(tx, {
+        memo: `Purchase return ${created.returnNumber}`,
+        referenceType: "purchase_return",
+        referenceId: created.id,
+        createdById: session.user.id,
+        lines: [
+          { accountCode: "2010", debit: Math.round(created.totalAmount * 100) / 100 },
+          { accountCode: "1200", credit: Math.round(subtotal * 100) / 100 },
+          { accountCode: "2040", credit: Math.round((gstTotal / 2) * 100) / 100 },
+          { accountCode: "2050", credit: Math.round((gstTotal / 2) * 100) / 100 },
+        ],
       });
 
       return created;

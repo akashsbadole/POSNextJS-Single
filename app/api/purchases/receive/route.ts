@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
@@ -81,6 +82,32 @@ export async function POST(req: NextRequest) {
             })),
           },
         },
+      });
+
+      let inventoryValue = 0;
+      let itcCGST = 0;
+      let itcSGST = 0;
+      for (const item of items) {
+        const line = poItemsByMedicine.get(item.medicineId)!;
+        const qty = Number(item.quantity);
+        const cost = line.unitPrice * qty;
+        inventoryValue += cost;
+        const tax = (cost * (line.gstRate || 0)) / 100;
+        itcCGST += tax / 2;
+        itcSGST += tax / 2;
+      }
+      const ap = Math.round((inventoryValue + itcCGST + itcSGST) * 100) / 100;
+      await postJournal(tx, {
+        memo: `Goods receipt ${po.poNumber}`,
+        referenceType: "po_receive",
+        referenceId: orderId,
+        createdById: session.user.id,
+        lines: [
+          { accountCode: "1200", debit: Math.round(inventoryValue * 100) / 100 },
+          { accountCode: "2040", debit: Math.round(itcCGST * 100) / 100 },
+          { accountCode: "2050", debit: Math.round(itcSGST * 100) / 100 },
+          { accountCode: "2010", credit: ap },
+        ],
       });
     });
 

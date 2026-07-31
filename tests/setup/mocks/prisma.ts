@@ -61,6 +61,7 @@ const modelNames = [
   "subscription", "subscriptionItem", "subscriptionDelivery",
   "loyaltyPoint", "loyaltyTier",
   "auditLog", "notification", "setting", "expense",
+  "ledgerAccount", "journalEntry", "journalLine",
   "customFieldDefinition", "customFieldValue",
   "drugLicense", "scheme", "promiseOrder",
   "cart", "cartItem",
@@ -75,6 +76,17 @@ for (const name of modelNames) {
 prismaMock.$transaction = jest.fn((fn: (tx: MockPrismaClient) => unknown) =>
   fn(prismaMock),
 ) as unknown as MockFn;
+
+// journal posting resolves account codes; default fns keep route tests that
+// touch postJournal green after clearAllMocks
+export function armLedgerMocks() {
+  prismaMock.ledgerAccount.upsert.mockImplementation(async ({ where, create }) =>
+    ({ id: where.code, code: where.code, name: create?.name || where.code, type: create?.type || "OTHER" }) as never,
+  );
+  prismaMock.ledgerAccount.findUnique.mockImplementation(async ({ where }) =>
+    ({ id: where.code || where.id, code: where.code, name: where.code || where.id, type: "OTHER" }) as never,
+  );
+}
 
 export { prismaMock, createModelMock };
 export type { MockPrismaClient };

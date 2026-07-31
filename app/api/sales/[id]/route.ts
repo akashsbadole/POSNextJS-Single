@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,19 +21,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (sale.paymentStatus !== "PENDING") {
         return NextResponse.json({ error: "Sale is not pending payment" }, { status: 400 });
       }
-      const updated = await prisma.$transaction([
-        prisma.sale.update({ where: { id }, data: { paymentStatus: "PAID" } }),
-        prisma.payment.updateMany({ where: { saleId: id }, data: { status: "PAID" } }),
-        prisma.auditLog.create({
-          data: {
-            userId: session.user.id,
-            action: "UPDATE",
-            entityType: "sale",
-            entityId: id,
-            newData: JSON.stringify({ paymentStatus: "PAID", action: "settle" }),
-          },
-        }),
-      ]);
+      const updated = await prisma.$transaction(async (tx) => {
+        await postJournal(tx, {
+          memo: `Settle credit sale ${sale.invoiceNumber}`,
+          referenceType: "sale_settle",
+          referenceId: id,
+          createdById: session.user.id,
+          lines: [
+            { accountCode: "1010", debit: sale.finalAmount },
+            { accountCode: "1100", credit: sale.finalAmount },
+          ],
+        });
+        return [
+          await tx.sale.update({ where: { id }, data: { paymentStatus: "PAID" } }),
+          await tx.payment.updateMany({ where: { saleId: id }, data: { status: "PAID" } }),
+          await tx.auditLog.create({
+            data: {
+              userId: session.user.id,
+              action: "UPDATE",
+              entityType: "sale",
+              entityId: id,
+              newData: JSON.stringify({ paymentStatus: "PAID", action: "settle" }),
+            },
+          }),
+        ];
+      });
       return NextResponse.json(updated[0]);
     }
 

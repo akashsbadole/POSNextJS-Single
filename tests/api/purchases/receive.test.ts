@@ -1,5 +1,5 @@
 import { POST } from "@/app/api/purchases/receive/route";
-import { prismaMock } from "../../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../../setup/mocks/prisma";
 import { createRequest, expectJson, expectStatus } from "../../helpers";
 
 const po = {
@@ -12,6 +12,7 @@ const po = {
 
 describe("Purchase Receive API", () => {
   beforeEach(() => jest.clearAllMocks());
+  armLedgerMocks();
 
   it("receives goods: upserts inventory and creates a batch", async () => {
     prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;

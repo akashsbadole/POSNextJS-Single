@@ -1,5 +1,5 @@
 import { GET, POST } from "@/app/api/purchases/returns/route";
-import { prismaMock } from "../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../setup/mocks/prisma";
 import { createRequest, expectJson, expectStatus, setRole } from "../helpers";
 
 jest.mock("@/lib/utils", () => ({
@@ -18,6 +18,7 @@ function runTx(fn: (tx: typeof prismaMock) => unknown) {
 describe("Purchase Returns API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  armLedgerMocks();
     setRole("MANAGER");
   });
 

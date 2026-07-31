@@ -41,6 +41,8 @@ import {
   ArrowUpLeft,
   ScanLine,
   ShieldCheck,
+  BookOpen,
+  Wallet,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -136,6 +138,15 @@ const navItems = [
         icon: DollarSign,
       },
       { title: "Custom Reports", href: "/reports/custom", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Accounting",
+    href: "/accounting",
+    icon: BookOpen,
+    children: [
+      { title: "Ledger & Reports", href: "/accounting", icon: BookOpen },
+      { title: "Expenses", href: "/accounting/expenses", icon: Wallet },
     ],
   },
   {

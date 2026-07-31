@@ -54,6 +54,48 @@ model InvoiceCounter {
   @@map("invoice_counters")
 }
 
+model LedgerAccount {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String // ASSET | LIABILITY | EQUITY | REVENUE | EXPENSE
+  createdAt DateTime @default(now()) @map("created_at")
+
+  journalLines JournalLine[]
+
+  @@map("ledger_accounts")
+}
+
+model JournalEntry {
+  id            String   @id @default(cuid())
+  entryNumber   String   @unique
+  date          DateTime
+  memo          String
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  createdById   String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  lines JournalLine[]
+
+  @@unique([referenceType, referenceId])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id        String        @id @default(cuid())
+  journalId String        @map("journal_id")
+  accountId String        @map("account_id")
+  debit     Float         @db.DoublePrecision @default(0)
+  credit    Float         @db.DoublePrecision @default(0)
+  memo      String?
+
+  journal JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+
+  @@map("journal_lines")
+}
+
 model RateLimitEntry {
   id        String   @id @default(cuid())
   key       String

@@ -1,5 +1,5 @@
 import { GET, POST } from "@/app/api/sales/route";
-import { prismaMock } from "../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../setup/mocks/prisma";
 import { createRequest, expectJson, expectStatus } from "../helpers";
 
 jest.mock("@/lib/utils", () => ({
@@ -21,6 +21,7 @@ jest.mock("@/lib/inventory", () => ({
 
 describe("Sales API", () => {
   beforeEach(() => jest.clearAllMocks());
+  armLedgerMocks();
 
   describe("GET", () => {
     it("lists sales with pagination", async () => {

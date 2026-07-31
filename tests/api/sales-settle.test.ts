@@ -1,10 +1,11 @@
 import { PATCH } from "@/app/api/sales/[id]/route";
-import { prismaMock } from "../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../setup/mocks/prisma";
 import { createRequest, expectStatus, setRole } from "../helpers";
 
 describe("Sale settle API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  armLedgerMocks();
     setRole("CASHIER");
   });
 

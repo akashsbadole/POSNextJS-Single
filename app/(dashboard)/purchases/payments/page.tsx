@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,12 +23,16 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     setLoading(true);
+    load();
+  }, [page]);
+
+  const load = () => {
     fetch(`/api/purchases?page=${page}&limit=20`)
       .then((r) => r.json())
       .then((d) => { setOrders(d.orders); setTotalPages(d.pagination.totalPages); })
       .catch(() => toast.error("Failed to load payments"))
       .finally(() => setLoading(false));
-  }, [page]);
+  };
 
   const totalPayable = orders.reduce((s, o) => s + o.totalAmount, 0);
 
@@ -74,6 +79,7 @@ export default function PaymentsPage() {
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -88,6 +94,9 @@ export default function PaymentsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">{new Date(o.createdAt).toLocaleDateString("en-IN")}</TableCell>
+                      <TableCell>
+                        <RecordPaymentButton poId={o.id} amount={o.totalAmount} disabled={o.status !== "RECEIVED"} onPaid={load} />
+                      </TableCell>
                     </TableRow>
                   ))}
                   {orders.length === 0 && (
@@ -111,5 +120,53 @@ export default function PaymentsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function RecordPaymentButton({ poId, amount, disabled, onPaid }: { poId: string; amount: number; disabled: boolean; onPaid: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ amount: String(amount), mode: "cash", transactionId: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  const pay = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/purchases/${poId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pay", amount: Number(form.amount), mode: form.mode, transactionId: form.transactionId || undefined, notes: form.notes || undefined }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to record payment");
+      toast.success("Payment recorded");
+      setOpen(false);
+      onPaid();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to record payment"); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <>
+      <Button size="sm" variant="outline" disabled={disabled} onClick={() => setOpen(true)}>Record Payment</Button>
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => setOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">Record Payment</h3>
+            <Input type="number" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+            </select>
+            <Input placeholder="Transaction ID (optional)" value={form.transactionId} onChange={(e) => setForm({ ...form, transactionId: e.target.value })} />
+            <Input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={pay} disabled={saving || Number(form.amount) <= 0}>{saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}Record</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

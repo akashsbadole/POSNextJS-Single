@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
@@ -129,12 +130,48 @@ export async function POST(req: NextRequest) {
             ...(line.batchNumber ? { batchNumber: line.batchNumber } : {}),
           },
           orderBy: { expiryDate: "asc" },
+          select: { id: true, purchasePrice: true },
         });
         if (batch) {
           await tx.batch.update({ where: { id: batch.id }, data: { quantity: { increment: qty } } });
+          if (batch.purchasePrice != null) {
+            await postJournal(tx, {
+              memo: `COGS reversal ${ret.returnNumber}`,
+              referenceType: "sale_return_cogs",
+              referenceId: ret.id,
+              createdById: session.user.id,
+              lines: [
+                { accountCode: "1200", debit: Math.round(batch.purchasePrice * qty * 100) / 100 },
+                { accountCode: "5010", credit: Math.round(batch.purchasePrice * qty * 100) / 100 },
+              ],
+            });
+          }
         }
         // ponytail: no matching batch row (legacy data) — stock restored at inventory level only, FEFO will ignore it
       }
+
+      // ponytail: GST pro-rated at rate/(100+rate) — exact for inclusive pricing,
+      // marginally off for exclusive-mode bills; a per-sale mode flag would fix it
+      let taxPortion = 0;
+      for (const item of items) {
+        const line = soldMap.get(item.medicineId)!;
+        const gross = line.unitPrice * Number(item.quantity);
+        const rate = line.gstRate || 0; // legacy sales may have no rate
+        taxPortion += (gross * rate) / (100 + rate);
+      }
+      const netRefund = Math.round((refundAmount - taxPortion) * 100) / 100;
+      await postJournal(tx, {
+        memo: `Sale return ${ret.returnNumber}`,
+        referenceType: "sale_return",
+        referenceId: ret.id,
+        createdById: session.user.id,
+        lines: [
+          { accountCode: "4020", debit: netRefund },
+          { accountCode: "2020", debit: Math.round((taxPortion / 2) * 100) / 100 },
+          { accountCode: "2030", debit: Math.round((taxPortion / 2) * 100) / 100 },
+          { accountCode: body.refundMode === "CASH" ? "1010" : "1020", credit: refundAmount },
+        ],
+      });
 
       return ret;
     });

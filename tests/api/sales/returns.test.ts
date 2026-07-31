@@ -1,11 +1,12 @@
 import { GET, POST } from "@/app/api/sales/returns/route";
-import { prismaMock } from "../../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../../setup/mocks/prisma";
 import { createRequest, expectJson, expectStatus } from "../../helpers";
 
 jest.mock("@/lib/utils", () => ({ generateInvoiceNumber: jest.fn(() => "RMA-260701-00001") }));
 
 describe("Sales Returns API", () => {
   beforeEach(() => jest.clearAllMocks());
+  armLedgerMocks();
 
   it("lists returns with pagination", async () => {
     prismaMock.saleReturn.findMany.mockResolvedValue([{ id: "r1", returnNumber: "RMA-001", sale: {}, items: [] }] as never);

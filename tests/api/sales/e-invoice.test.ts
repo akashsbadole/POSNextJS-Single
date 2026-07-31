@@ -1,5 +1,5 @@
 import { GET, POST } from "@/app/api/sales/[id]/e-invoice/route";
-import { prismaMock } from "../../setup/mocks/prisma";
+import { prismaMock, armLedgerMocks } from "../../setup/mocks/prisma";
 import { createRequest, expectJson, expectStatus } from "../../helpers";
 
 jest.mock("@/lib/gsp", () => ({
@@ -11,6 +11,7 @@ const mockParams = { params: Promise.resolve({ id: "s1" }) };
 
 describe("E-Invoice API", () => {
   beforeEach(() => jest.clearAllMocks());
+  armLedgerMocks();
 
   it("generates e-invoice for a sale", async () => {
     prismaMock.sale.findUnique.mockResolvedValue({
