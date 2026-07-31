@@ -10,6 +10,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { items, patientId, prescriptionId, paymentMode, discountType, discountValue, branchId } = body;
+    if (!Array.isArray(items) || items.length === 0 || !branchId) {
+      return NextResponse.json({ error: "Items and branch are required" }, { status: 400 });
+    }
+    if (items.some((i: { quantity?: number }) => !Number.isInteger(i.quantity) || (i.quantity ?? 0) <= 0)) {
+      return NextResponse.json({ error: "Item quantities must be positive integers" }, { status: 400 });
+    }
     const cashierId = session.user.id;
 
     const result = await prisma.$transaction(async (tx) => {

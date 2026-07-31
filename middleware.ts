@@ -41,6 +41,9 @@ export default withAuth(
         if (path.startsWith("/api/auth")) return true;
         if (["/login", "/register", "/forgot-password", "/otp-verify", "/onboarding"].includes(path)) return true;
         if (path.startsWith("/api/onboarding")) return true;
+        // external callers authenticate via their own secret checks (cron, Razorpay, Meta)
+        if (path.startsWith("/api/cron")) return true;
+        if (path === "/api/whatsapp/webhook" || path === "/api/online-store/checkout/webhook") return true;
         return token !== null;
       },
     },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 export type BatchPick = {
   batchId: string;
@@ -7,13 +8,7 @@ export type BatchPick = {
   remainingQty: number;
 };
 
-type TxClient = {
-  batch: {
-    findMany: (args: Record<string, unknown>) => Promise<{ id: string; batchNumber: string; quantity: number; expiryDate: Date }[]>;
-  };
-};
-
-export async function pickBatchFEFO(medicineId: string, branchId: string, qty: number, tx?: TxClient): Promise<BatchPick[]> {
+export async function pickBatchFEFO(medicineId: string, branchId: string, qty: number, tx?: Prisma.TransactionClient): Promise<BatchPick[]> {
   const client = tx || prisma;
   const batches = await client.batch.findMany({
     where: {

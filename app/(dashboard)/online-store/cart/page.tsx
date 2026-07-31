@@ -13,6 +13,17 @@ import { fetchServerCart, upsertCartItem, removeCartItem, clearServerCart, getLo
 
 declare global { interface Window { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void }; } }
 
+function loadRazorpay(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window.Razorpay !== "undefined") return resolve();
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load payment gateway"));
+    document.body.appendChild(script);
+  });
+}
+
 interface CartItem { id: string; name: string; price: number; quantity: number; prescription: boolean; }
 
 export default function CartPage() {
@@ -21,6 +32,9 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
   const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -77,31 +91,32 @@ export default function CartPage() {
         body: JSON.stringify({
           items: items.map((i) => ({ medicineId: i.id, quantity: i.quantity })),
           shippingAddress: address,
+          shippingCity: city,
+          shippingState: state,
+          shippingPincode: pincode,
           paymentMode: "prepaid",
         }),
       });
       if (!res.ok) { toast.error("Checkout failed"); return; }
       const data = await res.json();
 
-      if (data.razorpayOrderId && typeof window.Razorpay !== "undefined") {
-        const rp = new window.Razorpay({
-          key: data.razorpayKeyId,
-          order_id: data.razorpayOrderId,
-          handler: () => {
-            toast.success("Payment successful! Order placed.");
-            localStorage.removeItem("cart");
-            setItems([]);
-            clearServerCart();
-          },
-          modal: { ondismiss: () => setCheckingOut(false) },
-        });
-        rp.open();
-      } else {
-        toast.success("Order placed!");
-        localStorage.removeItem("cart");
-        setItems([]);
-        clearServerCart();
+      if (!data.razorpayOrderId) {
+        toast.error("Payment gateway not configured");
+        return;
       }
+      await loadRazorpay();
+      const rp = new window.Razorpay!({
+        key: data.razorpayKeyId,
+        order_id: data.razorpayOrderId,
+        handler: () => {
+          toast.success("Payment successful! Order placed.");
+          localStorage.removeItem("cart");
+          setItems([]);
+          clearServerCart();
+        },
+        modal: { ondismiss: () => setCheckingOut(false) },
+      });
+      rp.open();
     } catch {
       toast.error("Checkout failed");
     } finally {
@@ -171,7 +186,14 @@ export default function CartPage() {
                   <span>Total</span><span>₹{grandTotal.toFixed(2)}</span>
                 </div>
               </div>
-              <Input placeholder="Shipping address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              <div className="space-y-2">
+                <Input placeholder="Shipping address" value={address} onChange={(e) => setAddress(e.target.value)} />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+                  <Input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} />
+                </div>
+                <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
+              </div>
               <Button className="w-full" disabled={items.length === 0 || checkingOut} onClick={checkout}>
                 {checkingOut ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
                 Proceed to Checkout

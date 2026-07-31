@@ -31,15 +31,22 @@ export async function GET(req: NextRequest) {
     for (const batch of expiringBatches) {
       const message = `Batch ${batch.batchNumber} of ${batch.medicine.name} expires on ${new Date(batch.expiryDate).toLocaleDateString("en-IN")}`;
       if (!existingAlertIds.has(message)) {
-        notifications.push({
-          userId: batch.inventory.branchId,
-          type: "EXPIRY",
-          title: "Batch Expiry Alert",
-          message,
-          channels: JSON.stringify(["email"]),
-          entityType: "batch",
-          entityId: batch.id,
+        // ponytail: one notification per batch message; userId now a real user (branch managers), not branchId as before
+        const recipients = await prisma.user.findMany({
+          where: { branchId: batch.inventory.branchId, role: { in: ["MANAGER", "OWNER"] } },
+          select: { id: true },
         });
+        for (const recipient of recipients.length > 0 ? recipients : await prisma.user.findMany({ where: { role: "OWNER" }, select: { id: true } })) {
+          notifications.push({
+            userId: recipient.id,
+            type: "EXPIRY",
+            title: "Batch Expiry Alert",
+            message,
+            channels: JSON.stringify(["email"]),
+            entityType: "batch",
+            entityId: batch.id,
+          });
+        }
       }
     }
 

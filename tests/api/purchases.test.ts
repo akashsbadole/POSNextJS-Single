@@ -38,9 +38,14 @@ describe("Purchases API", () => {
   });
 
   it("updates a purchase order", async () => {
-    prismaMock.purchaseOrder.update.mockResolvedValue({ id: "po1", status: "APPROVED" } as never);
-    const req = createRequest("/api/purchases", { method: "PUT", body: { id: "po1", status: "APPROVED" } });
+    prismaMock.purchaseOrder.update.mockResolvedValue({ id: "po1", status: "PENDING" } as never);
+    const req = createRequest("/api/purchases", { method: "PUT", body: { id: "po1", status: "PENDING" } });
     const { json } = await expectJson(PUT, req);
-    expect(json.status).toBe("APPROVED");
+    expect(json.status).toBe("PENDING");
+  });
+
+  it("rejects invalid status values", async () => {
+    const req = createRequest("/api/purchases", { method: "PUT", body: { id: "po1", status: "APPROVED" } });
+    const { res } = await expectStatus(PUT, req, 400);
   });
 });

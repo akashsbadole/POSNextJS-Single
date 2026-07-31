@@ -38,8 +38,7 @@ async function getToken(): Promise<string> {
 
 export async function submitEInvoice(payload: Record<string, unknown>): Promise<GspResponse> {
   if (!GSP_API_URL || !GSP_USERNAME) {
-    console.log("[GSP] No GSP configured — e-invoice stored locally only");
-    return { success: true, irn: payload.Irn as string };
+    return { success: false, error: "GSP not configured" };
   }
   try {
     const token = await getToken();
@@ -69,8 +68,7 @@ export async function submitEInvoice(payload: Record<string, unknown>): Promise<
 
 export async function cancelEInvoice(irn: string): Promise<GspResponse> {
   if (!GSP_API_URL || !GSP_USERNAME) {
-    console.log("[GSP] No GSP configured — skipping IRN cancellation");
-    return { success: true };
+    return { success: false, error: "GSP not configured" };
   }
   try {
     const token = await getToken();

@@ -12,7 +12,7 @@ describe("Input Validation", () => {
       body: { name: "", genericName: "", categoryId: "", mrp: -1, purchasePrice: -1, sellingPrice: -1 },
     });
     const { res } = await expectStatus(POST, req, 400);
-    const json = await res.json();
+    const json: any = await res.json();
     expect(json.error).toBe("Validation failed");
   });
 

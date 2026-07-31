@@ -12,7 +12,7 @@ function computeForecast(trend: { month: string; sales: number }[]): { month: st
   const avg = Math.round(last3.reduce((s, t) => s + t.sales, 0) / last3.length);
   const lastMonth = trend[trend.length - 1].month;
   const [yearStr, monthStr] = lastMonth.split("-").map(Number);
-  const result: { month: string; sales: number; forecast: boolean }[] = [...trend];
+  const result: { month: string; sales: number; forecast: boolean }[] = trend.map((t) => ({ ...t, forecast: false }));
   for (let i = 1; i <= 2; i++) {
     let m = monthStr + i;
     let y = yearStr;

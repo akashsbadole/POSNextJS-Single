@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "items are required" }, { status: 400 });
     }
+    if (!shippingAddress || !shippingCity || !shippingState || !shippingPincode) {
+      return NextResponse.json({ error: "Complete shipping address required" }, { status: 400 });
+    }
 
     const medicineIds = items.map((i: { medicineId: string }) => i.medicineId);
     const medicines = await prisma.medicine.findMany({
@@ -39,43 +42,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: stockErrors.join("; ") }, { status: 400 });
     }
 
-    const order = await prisma.$transaction(async (tx) => {
-      for (const it of items) {
-        const inv = await tx.inventory.findFirst({
-          where: { medicineId: it.medicineId },
-        });
-        if (inv) {
-          await tx.inventory.update({
-            where: { id: inv.id },
-            data: { quantity: { decrement: it.quantity || 1 } },
-          });
-        }
-      }
-
-      return tx.onlineOrder.create({
-        data: {
-          orderNumber: await generateInvoiceNumber("ORD"),
-          customerId: session.user.id,
-          shippingAddress: shippingAddress || "",
-          shippingCity: shippingCity || "",
-          shippingState: shippingState || "",
-          shippingPincode: shippingPincode || "",
-          subtotal,
-          totalAmount: subtotal,
-          paymentMode: paymentMode || "prepaid",
-          paymentStatus: "PENDING",
-          status: "PENDING",
-          items: {
-            create: items.map((it: { medicineId: string; quantity: number }) => ({
-              medicineId: it.medicineId,
-              quantity: it.quantity || 1,
-              unitPrice: medicineMap.get(it.medicineId)?.sellingPrice || 0,
-              totalAmount: (medicineMap.get(it.medicineId)?.sellingPrice || 0) * (it.quantity || 1),
-            })),
-          },
+    // ponytail: order created PENDING with no stock movement — stock is deducted on payment capture in the webhook.
+    const order = await prisma.onlineOrder.create({
+      data: {
+        orderNumber: await generateInvoiceNumber("ORD"),
+        customerId: session.user.id,
+        shippingAddress,
+        shippingCity,
+        shippingState,
+        shippingPincode,
+        subtotal,
+        totalAmount: Math.round(subtotal * 1.05 * 100) / 100, // 5% GST, matches storefront display
+        paymentMode: paymentMode || "prepaid",
+        paymentStatus: "PENDING",
+        status: "PENDING",
+        items: {
+          create: items.map((it: { medicineId: string; quantity: number }) => ({
+            medicineId: it.medicineId,
+            quantity: it.quantity || 1,
+            unitPrice: medicineMap.get(it.medicineId)?.sellingPrice || 0,
+            totalAmount: (medicineMap.get(it.medicineId)?.sellingPrice || 0) * (it.quantity || 1),
+          })),
         },
-        include: { items: true },
-      });
+      },
+      include: { items: true },
     });
 
     let razorpayOrderId: string | null = null;
@@ -85,7 +75,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
         body: JSON.stringify({
-          amount: Math.round(subtotal * 100),
+          amount: Math.round(order.totalAmount * 100),
           currency: "INR",
           receipt: order.orderNumber,
           notes: { orderId: order.id },
@@ -110,4 +100,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
-// ponytail: Razorpay integration via direct API call (no SDK dep). Webhook handler at /webhook for payment confirmation.

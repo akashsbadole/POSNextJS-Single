@@ -11,11 +11,11 @@ describe("WhatsApp Webhook API", () => {
     return req;
   }
 
-  it("verifies webhook with valid token", async () => {
+  it("verifies webhook with valid token (raw challenge text)", async () => {
     const req = createRequest("/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=test-key&hub.challenge=challenge123");
     const res = await GET(req);
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.text();
     expect(data).toBe("challenge123");
   });
 
@@ -24,7 +24,8 @@ describe("WhatsApp Webhook API", () => {
     const { res } = await expectStatus(GET as never, req as never, 403);
   });
 
-  it("processes incoming messages", async () => {
+  it("processes incoming messages for known users", async () => {
+    prismaMock.user.findFirst.mockResolvedValue({ id: "u1" } as never);
     prismaMock.notification.create.mockResolvedValue({} as never);
     const { json } = await expectJson(POST, whRequest("/api/whatsapp/webhook", {
       method: "POST",
@@ -34,12 +35,19 @@ describe("WhatsApp Webhook API", () => {
     expect(prismaMock.notification.create).toBeCalled();
   });
 
-  it("processes status updates", async () => {
-    prismaMock.notification.create.mockResolvedValue({} as never);
+  it("skips notifications for unknown numbers (no FK violation)", async () => {
+    prismaMock.user.findFirst.mockResolvedValue(null as never);
     const { json } = await expectJson(POST, whRequest("/api/whatsapp/webhook", {
       method: "POST",
-      body: { entry: [{ changes: [{ value: { statuses: [{ id: "st1", recipientId: "919876543210", status: "sent" }] } }] }] },
+      body: { entry: [{ changes: [{ value: { messages: [{ from: "919876543210", text: { body: "Stop" } }] } }] }] },
     }));
     expect(json.received).toBe(true);
+    expect(prismaMock.notification.create).not.toBeCalled();
+  });
+
+  it("rejects requests without a valid webhook secret", async () => {
+    const req = createRequest("/api/whatsapp/webhook", { method: "POST", body: { entry: [] } });
+    req.headers.set("x-webhook-secret", "wrong");
+    const { res } = await expectStatus(POST as never, req as never, 403);
   });
 });

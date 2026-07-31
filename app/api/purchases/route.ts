@@ -44,6 +44,18 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { items, branchId, supplierId, notes, expectedDate } = body;
+    if (!Array.isArray(items) || items.length === 0 || !branchId || !supplierId) {
+      return NextResponse.json({ error: "Items, branch and supplier required" }, { status: 400 });
+    }
+
+    const itemsData = items.map((item: { medicineId: string; quantity: number; unitPrice: number; gstRate?: number }) => {
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
+      const totalAmount = quantity * unitPrice;
+      return { medicineId: item.medicineId, quantity, unitPrice, gstRate: Number(item.gstRate || 0), totalAmount };
+    });
+    const subtotal = itemsData.reduce((sum, i) => sum + i.totalAmount, 0);
+    const gstTotal = itemsData.reduce((sum, i) => sum + (i.totalAmount * i.gstRate) / 100, 0);
 
     const order = await prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.create({
@@ -51,12 +63,17 @@ export async function POST(req: NextRequest) {
           branchId,
           supplierId,
           notes,
-          expectedDate: expectedDate ? new Date(expectedDate) : undefined,
+          expectedDeliveryDate: expectedDate ? new Date(expectedDate) : undefined,
           createdById: session.user.id,
           poNumber: await generateInvoiceNumber("PO"),
           status: "DRAFT",
+          subtotal,
+          taxableAmount: subtotal,
+          cgstAmount: gstTotal / 2,
+          sgstAmount: gstTotal / 2,
+          totalAmount: subtotal + gstTotal,
           items: {
-            create: items,
+            create: itemsData,
           },
         },
         include: { items: true },
@@ -78,6 +95,9 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { id, ...data } = body;
     if (!id) return NextResponse.json({ error: "Purchase order ID required" }, { status: 400 });
+    if (data.status && !["DRAFT", "PENDING", "RECEIVED", "CANCELLED"].includes(data.status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
     const order = await prisma.purchaseOrder.update({ where: { id }, data });
     return NextResponse.json(order);
   } catch (error) {

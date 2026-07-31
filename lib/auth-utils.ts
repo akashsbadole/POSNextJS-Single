@@ -11,8 +11,6 @@ const registerSchema = z.object({
   email: z.string().email(),
   phone: z.string().regex(/^\d{10}$/),
   password: z.string().min(6),
-  role: z.enum(["OWNER", "MANAGER", "PHARMACIST", "CASHIER"]).default("CASHIER"),
-  branchId: z.string().optional(),
 });
 
 export async function registerUser(data: z.infer<typeof registerSchema>) {
@@ -29,14 +27,17 @@ export async function registerUser(data: z.infer<typeof registerSchema>) {
 
     const hashedPassword = await bcrypt.hash(validated.password, 12);
 
+    // ponytail: public registration is always CASHIER except the very first user (onboarding bootstrap). Never accept role from the client.
+    const userCount = await prisma.user.count();
+    const role = userCount === 0 ? "OWNER" : "CASHIER";
+
     const user = await prisma.user.create({
       data: {
         name: validated.name,
         email: validated.email,
         phone: validated.phone,
         password: hashedPassword,
-        role: validated.role,
-        branchId: validated.branchId,
+        role,
       },
     });
 

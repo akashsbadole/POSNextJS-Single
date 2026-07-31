@@ -6,6 +6,7 @@ declare module "next-auth" {
     role?: string;
     branchId?: string | null;
     businessType?: string;
+    twoFactorEnabled?: boolean;
   }
 
   interface Session {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       role?: string;
       branchId?: string | null;
       businessType?: string;
+      twoFactorEnabled?: boolean;
     };
   }
 }
@@ -26,5 +28,6 @@ declare module "next-auth/jwt" {
     role?: string;
     branchId?: string | null;
     businessType?: string;
+    twoFactorEnabled?: boolean;
   }
 }

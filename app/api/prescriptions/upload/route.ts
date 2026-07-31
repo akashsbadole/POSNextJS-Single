@@ -17,7 +17,16 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const ext = path.extname(file.name) || ".jpg";
+
+    // images only — svg/html uploads would be served from /public and execute scripts
+    const ext = path.extname(file.name).toLowerCase();
+    if (![".jpg", ".jpeg", ".png", ".webp", ".pdf"].includes(ext)) {
+      return NextResponse.json({ error: "Only JPG, PNG, WEBP or PDF files are allowed" }, { status: 400 });
+    }
+    if (buffer.length > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
+    }
+
     const filename = `${randomUUID()}${ext}`;
     const dir = path.join(process.cwd(), "public", "uploads", "prescriptions");
     await mkdir(dir, { recursive: true });

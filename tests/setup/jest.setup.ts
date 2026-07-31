@@ -16,7 +16,7 @@ const defaultSession = {
   },
 };
 
-const mockRequireAuth = jest.fn<() => Promise<typeof defaultSession | null>>();
+const mockRequireAuth = jest.fn();
 
 mockRequireAuth.mockResolvedValue(defaultSession);
 

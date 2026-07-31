@@ -12,7 +12,7 @@ import {
 import type { Medicine } from "@/types";
 
 type DashboardData = { totalRevenue?: number; totalSales?: number; lowStockCount?: number; totalPatients?: number; totalMedicines?: number };
-type ReportData = { kpis?: Record<string, number>; trend?: { month: string; sales: number; orders: number }[]; topMedicines?: (Medicine & { units?: number; revenue?: number })[] };
+type ReportData = { kpis?: Record<string, number>; trend?: { month: string; sales: number; orders: number }[]; forecast?: { month: string; sales: number; forecast: boolean }[]; topMedicines?: (Medicine & { units?: number; revenue?: number })[] };
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
             ) : (
               <div className="h-48 flex items-end gap-3">
                 {trend.map((t: { month: string; sales: number; orders: number }) => {
-                  const max = Math.max(...trend.map((x) => x.sales));
+                  const max = Math.max(...trend.map((x: { sales: number }) => x.sales));
                   return (
                     <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
                       <div

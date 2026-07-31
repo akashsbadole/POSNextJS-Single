@@ -74,6 +74,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             branchId: user.branchId,
             businessType: branch?.businessType || "RETAIL_PHARMACY",
+            twoFactorEnabled: user.twoFactorEnabled,
           };
         } catch {
           return null;
@@ -87,7 +88,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.branchId = user.branchId;
         token.businessType = user.businessType || "RETAIL_PHARMACY";
-        token.twoFactorEnabled = user.twoFactorEnabled || false;
+        token.twoFactorEnabled = (user as { twoFactorEnabled?: boolean }).twoFactorEnabled || false;
       }
       return token;
     },

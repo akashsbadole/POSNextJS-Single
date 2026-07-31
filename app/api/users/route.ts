@@ -34,11 +34,28 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await requireAuth();
   if (!session) return unauthorized();
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json({ error: "Only owners can manage users" }, { status: 403 });
+  }
   try {
     const body = await req.json();
-    const { id, name, phone, status, branchId } = body;
+    const { id, name, phone, status, branchId, role } = body;
     if (!id) return NextResponse.json({ error: "User ID required" }, { status: 400 });
-    const user = await prisma.user.update({ where: { id }, data: { name, phone, status, branchId } });
+    if (status && !["ACTIVE", "SUSPENDED", "INACTIVE"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    if (role && !["OWNER", "MANAGER", "PHARMACIST", "CASHIER"].includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+    // whitelisted fields only; never return credentials to the client
+    const user = await prisma.user.update({
+      where: { id },
+      data: { name, phone, status, branchId, role },
+      select: {
+        id: true, name: true, email: true, phone: true, role: true, status: true,
+        branchId: true, twoFactorEnabled: true,
+      },
+    });
     return NextResponse.json(user);
   } catch (error) {
     console.error("Error updating user:", error);

@@ -124,12 +124,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const gspResult = await submitEInvoice(payload);
     if (!gspResult.success) {
-      console.error("GSP submission failed:", gspResult.error);
+      // ponytail: fail closed — never persist a locally-hashed fake IRN, that breaks GST compliance
+      return NextResponse.json({ error: gspResult.error || "GSP submission failed" }, { status: 502 });
     }
 
     await prisma.sale.update({
       where: { id: saleId },
-      data: { eInvoiceId: gspResult.irn || irn },
+      data: { eInvoiceId: gspResult.irn! },
     });
 
     await prisma.auditLog.create({
@@ -138,13 +139,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         action: "E_INVOICE_GENERATED",
         entityType: "sale",
         entityId: sale.invoiceNumber,
-        newData: JSON.stringify({ eInvoiceId: gspResult.irn || irn, gspResult, payload }),
+        newData: JSON.stringify({ eInvoiceId: gspResult.irn, payload }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      eInvoiceId: gspResult.irn || irn,
+      eInvoiceId: gspResult.irn,
       gspResult,
       payload,
     });

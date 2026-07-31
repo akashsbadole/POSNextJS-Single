@@ -10,6 +10,7 @@ describe("registerUser", () => {
 
   it("registers a new user successfully", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.count.mockResolvedValue(0);
     prismaMock.user.create.mockResolvedValue({
       id: "new-user", name: "Test", email: "test@test.com",
       phone: "9876543210", password: "hashed", role: "OWNER",
@@ -19,10 +20,28 @@ describe("registerUser", () => {
     const { registerUser } = await import("@/lib/auth-utils");
     const result = await registerUser({
       name: "Test User", email: "test@test.com",
-      phone: "9876543210", password: "secure123", role: "OWNER",
+      phone: "9876543210", password: "secure123",
     });
     expect(result.success).toBe(true);
     expect(result.userId).toBe("new-user");
+  });
+
+  it("forces CASHIER role for non-first registrations (no privilege escalation)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.count.mockResolvedValue(5);
+    prismaMock.user.create.mockResolvedValue({
+      id: "new-user", name: "Test", email: "test@test.com",
+      phone: "9876543210", password: "hashed", role: "CASHIER",
+    } as never);
+    prismaMock.auditLog.create.mockResolvedValue({} as never);
+
+    const { registerUser } = await import("@/lib/auth-utils");
+    const result = await registerUser({
+      name: "Test User", email: "test@test.com",
+      phone: "9876543210", password: "secure123",
+    });
+    expect(result.success).toBe(true);
+    expect(prismaMock.user.create).toBeCalledWith(expect.objectContaining({ data: expect.objectContaining({ role: "CASHIER" }) }));
   });
 
   it("rejects duplicate emails", async () => {

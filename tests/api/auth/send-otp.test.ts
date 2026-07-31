@@ -14,7 +14,7 @@ describe("POST /api/auth/send-otp", () => {
 
   it("rejects invalid phone", async () => {
     const { res } = await expectStatus(POST, createRequest("/api/auth/send-otp", { method: "POST", body: { phone: "123" } }), 400);
-    const json = await res.json();
+    const json: any = await res.json();
     expect(json.error).toContain("10-digit");
   });
 

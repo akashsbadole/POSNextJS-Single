@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockRequireAuth } from "./setup/jest.setup";
 
-type RouteHandler = (req: NextRequest, ...args: unknown[]) => Promise<{ status: number; json: () => Promise<unknown> }>;
+type RouteHandler = (...args: any[]) => Promise<{ status: number; json: () => Promise<any> }>;
 
 export function createRequest(url: string, init?: { method?: string; body?: Record<string, unknown>; searchParams?: Record<string, string> }) {
   const fullUrl = new URL(url, "http://localhost:3000");
@@ -40,6 +40,6 @@ export async function expectStatus(handler: RouteHandler, req: NextRequest, stat
 
 export async function expectJson(handler: RouteHandler, req: NextRequest, extraArgs: unknown[] = []) {
   const res = await handler(req, ...extraArgs);
-  const json = await res.json();
+  const json: any = await res.json();
   return { res, json };
 }

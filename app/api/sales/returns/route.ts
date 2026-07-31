@@ -36,15 +36,46 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { items, ...returnData } = body;
+    const { items, saleId, reason, branchId } = body;
+    if (!saleId || !Array.isArray(items) || items.length === 0 || !branchId) {
+      return NextResponse.json({ error: "saleId, branchId and items are required" }, { status: 400 });
+    }
+
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: { items: true },
+    });
+    if (!sale) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
+
+    // only return items that were actually on the sale, and not more than was sold
+    const soldMap = new Map(sale.items.map((i) => [i.medicineId, i.quantity]));
+    for (const item of items) {
+      const soldQty = soldMap.get(item.medicineId);
+      if (!soldQty) return NextResponse.json({ error: `Medicine ${item.medicineId} was not on this sale` }, { status: 400 });
+      if (item.quantity <= 0 || item.quantity > soldQty) {
+        return NextResponse.json({ error: `Return quantity exceeds sold quantity for ${item.medicineId}` }, { status: 400 });
+      }
+    }
 
     const saleReturn = await prisma.$transaction(async (tx) => {
+      const itemsData = items.map((item: { medicineId: string; quantity: number; unitPrice?: number }) => ({
+        medicineId: item.medicineId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice ?? 0,
+        refundAmount: (item.unitPrice ?? 0) * item.quantity,
+        reason,
+      }));
+      const refundAmount = itemsData.reduce((sum: number, i: { refundAmount: number }) => sum + i.refundAmount, 0);
+
       const ret = await tx.saleReturn.create({
         data: {
-          ...returnData,
+          saleId,
+          reason,
+          refundAmount,
+          refundMode: body.refundMode || "CASH",
           returnNumber: await generateInvoiceNumber("RMA"),
           items: {
-            create: items,
+            create: itemsData,
           },
         },
         include: { items: true },
@@ -52,7 +83,7 @@ export async function POST(req: NextRequest) {
 
       for (const item of items) {
         await tx.inventory.updateMany({
-          where: { medicineId: item.medicineId, branchId: returnData.branchId },
+          where: { medicineId: item.medicineId, branchId },
           data: { quantity: { increment: item.quantity } },
         });
       }

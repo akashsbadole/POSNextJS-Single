@@ -99,6 +99,7 @@ model User {
   subscriptions     Subscription[]
   onlineOrders      OnlineOrder[]
   loyaltyPoints     LoyaltyPoint[]
+  cart              Cart?
 
   @@map("users")
 }
@@ -177,6 +178,7 @@ model Medicine {
   onlineOrderItems OnlineOrderItem[]
   subscriptionItems SubscriptionItem[]
   promiseOrders   PromiseOrder[]
+  cartItems       CartItem[]
 
   @@index([name])
   @@index([barcode])

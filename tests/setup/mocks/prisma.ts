@@ -8,27 +8,29 @@ type PrismaModels = {
     : never;
 }[keyof PrismaClient];
 
+type MockFn = jest.Mock<any, any>;
+
 type MockModel = {
-  findUnique?: ReturnType<typeof jest.fn>;
-  findFirst?: ReturnType<typeof jest.fn>;
-  findMany?: ReturnType<typeof jest.fn>;
-  create?: ReturnType<typeof jest.fn>;
-  createMany?: ReturnType<typeof jest.fn>;
-  update?: ReturnType<typeof jest.fn>;
-  updateMany?: ReturnType<typeof jest.fn>;
-  upsert?: ReturnType<typeof jest.fn>;
-  delete?: ReturnType<typeof jest.fn>;
-  deleteMany?: ReturnType<typeof jest.fn>;
-  count?: ReturnType<typeof jest.fn>;
-  aggregate?: ReturnType<typeof jest.fn>;
-  groupBy?: ReturnType<typeof jest.fn>;
+  findUnique: MockFn;
+  findFirst: MockFn;
+  findMany: MockFn;
+  create: MockFn;
+  createMany: MockFn;
+  update: MockFn;
+  updateMany: MockFn;
+  upsert: MockFn;
+  delete: MockFn;
+  deleteMany: MockFn;
+  count: MockFn;
+  aggregate: MockFn;
+  groupBy: MockFn;
 };
 
 type MockPrismaClient = {
-  [K in keyof PrismaClient]: PrismaClient[K] extends { $transaction: never }
+  [K in Exclude<keyof PrismaClient, "$transaction">]: PrismaClient[K] extends { findMany: (...args: never[]) => unknown }
     ? MockModel
     : never;
-} & { $transaction: ReturnType<typeof jest.fn> };
+} & { $transaction: MockFn };
 
 function createModelMock(): MockModel {
   return {
@@ -44,6 +46,7 @@ function createModelMock(): MockModel {
     deleteMany: jest.fn(),
     count: jest.fn(),
     aggregate: jest.fn(),
+    groupBy: jest.fn(),
   };
 }
 
@@ -60,6 +63,7 @@ const modelNames = [
   "auditLog", "notification", "setting", "expense",
   "customFieldDefinition", "customFieldValue",
   "drugLicense", "scheme", "promiseOrder",
+  "cart", "cartItem",
 ] as const;
 
 const prismaMock = {} as MockPrismaClient;
@@ -70,7 +74,7 @@ for (const name of modelNames) {
 
 prismaMock.$transaction = jest.fn((fn: (tx: MockPrismaClient) => unknown) =>
   fn(prismaMock),
-) as unknown as ReturnType<typeof jest.fn>;
+) as unknown as MockFn;
 
 export { prismaMock, createModelMock };
 export type { MockPrismaClient };
