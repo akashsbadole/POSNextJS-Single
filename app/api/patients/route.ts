@@ -16,6 +16,7 @@ const patientSchema = z.object({
   state: z.string().optional(),
   pincode: z.string().optional(),
   gstin: z.string().optional(),
+  creditLimit: z.number().min(0).optional(),
 });
 
 export async function GET(req: NextRequest) {

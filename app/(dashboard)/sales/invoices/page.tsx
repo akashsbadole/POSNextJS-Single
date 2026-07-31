@@ -36,8 +36,7 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [viewSale, setViewSale] = useState<Sale | null>(null);
-
-  useEffect(() => {
+  const loadSales = () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (search) params.set("search", search);
@@ -49,6 +48,10 @@ export default function InvoicesPage() {
       })
       .catch(() => toast.error("Failed to load invoices"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadSales();
   }, [page, search]);
 
   const getStatusVariant = (status: string) => {
@@ -139,6 +142,18 @@ export default function InvoicesPage() {
                           <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Download" onClick={() => { const w = window.open("", "_blank"); if (!w) return; w.document.write(getInvoiceHTML(s)); w.document.close(); setTimeout(() => w.print(), 500); }}>
                             <Download className="w-4 h-4" />
                           </Button>
+                          {s.paymentStatus === "PENDING" && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+                              try {
+                                const r = await fetch(`/api/sales/${s.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "settle" }) });
+                                if (!r.ok) throw new Error((await r.json()).error || "Failed to settle");
+                                toast.success(`${s.invoiceNumber} marked paid`);
+                                loadSales();
+                              } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to settle"); }
+                            }}>
+                              Mark Paid
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

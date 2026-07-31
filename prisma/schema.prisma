@@ -338,6 +338,9 @@ model Patient {
   allergies     String   @default("[]")
   chronicConditions String @default("[]") @map("chronic_conditions")
 
+  // ponytail: 0 = credit sales not allowed; outstanding = sum of PENDING sales, checked at POS
+  creditLimit   Float    @default(0) @map("credit_limit")
+
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

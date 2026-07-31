@@ -123,6 +123,19 @@ export async function POST(req: NextRequest) {
       const finalAmount = Math.round(totalAmount);
       const roundOff = finalAmount - totalAmount;
 
+      if (mode === "credit") {
+        if (!patientId) throw new Error("Credit sales require a patient");
+        const patient = await tx.patient.findUnique({ where: { id: patientId } });
+        if (!patient || patient.creditLimit <= 0) throw new Error("Credit not allowed for this patient");
+        const outstanding = await tx.sale.aggregate({
+          where: { patientId, paymentStatus: "PENDING" },
+          _sum: { finalAmount: true },
+        });
+        if ((outstanding._sum.finalAmount || 0) + finalAmount > patient.creditLimit) {
+          throw new Error("Credit limit exceeded");
+        }
+      }
+
       const paymentStatus = mode === "credit" ? "PENDING" : "PAID";
       const invoiceNumber = await generateInvoiceNumber("INV");
 
@@ -202,6 +215,7 @@ export async function POST(req: NextRequest) {
       : message.startsWith("Prescription required") ? 422
       : message.startsWith("Insufficient stock") ? 400
       : message.startsWith("Invalid discount") ? 400
+      : message.startsWith("Credit") ? 400
       : 500;
     if (status === 500) console.error("Error creating sale:", error);
     return NextResponse.json({ error: message }, { status });

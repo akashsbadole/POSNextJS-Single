@@ -60,6 +60,10 @@ export default function POSPage() {
   const [discountValue, setDiscountValue] = useState(0);
   const [taxInclusive, setTaxInclusive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientResults, setPatientResults] = useState<{ id: string; name: string; phone: string | null }[]>([]);
 
   useEffect(() => {
     fetch("/api/medicines?limit=1000")
@@ -179,6 +183,7 @@ export default function POSPage() {
           discountType: discountType === "none" ? undefined : discountType,
           discountValue: discountType === "none" ? undefined : discountValue,
           branchId: session?.user?.branchId || "",
+          patientId: patientId || undefined,
           cashierId: session?.user?.id || "",
         }),
       });
@@ -192,6 +197,9 @@ export default function POSPage() {
       setCart([]);
       setDiscountType("none");
       setDiscountValue(0);
+      setPatientId(null);
+      setPatientName("");
+      setPatientSearch("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Sale failed");
     } finally {
@@ -387,6 +395,47 @@ export default function POSPage() {
                 </Button>
               ))}
             </div>
+            {paymentMode === "credit" && (
+              <div className="relative space-y-1">
+                {patientName ? (
+                  <div className="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-700/50 rounded-md px-3 py-2">
+                    <span>{patientName}</span>
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => { setPatientId(null); setPatientName(""); setPatientSearch(""); }}>Change</Button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Search patient for credit..."
+                      value={patientSearch}
+                      onChange={(e) => {
+                        setPatientSearch(e.target.value);
+                        if (e.target.value.trim().length >= 2) {
+                          fetch(`/api/patients?search=${encodeURIComponent(e.target.value)}&limit=8`)
+                            .then((r) => r.json())
+                            .then((d) => setPatientResults(d.patients || []))
+                            .catch(() => {});
+                        } else {
+                          setPatientResults([]);
+                        }
+                      }}
+                    />
+                    {patientResults.length > 0 && (
+                      <div className="absolute z-20 w-full bg-white dark:bg-gray-800 border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {patientResults.map((p) => (
+                          <button
+                            key={p.id}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={() => { setPatientId(p.id); setPatientName(p.name); setPatientResults([]); setPatientSearch(""); }}
+                          >
+                            {p.name} <span className="text-xs text-gray-400">{p.phone || ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2 text-sm">

@@ -130,8 +130,63 @@ describe("Sales API", () => {
       expect(createData.items.create[0].cgstAmount).toBeCloseTo((50 - 50 / 1.05) / 2, 5);
     });
 
-    it("requires prescription for Schedule H medicines", async () => {
-      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Amoxicillin", sellingPrice: 120, mrp: 150, gstRate: 12, scheduleType: "H" } as never);
+    it("rejects credit sale without patient", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 1, remainingQty: 0 }]);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 1 }], paymentMode: "credit", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 400);
+    });
+
+    it("rejects credit sale when patient has no credit limit", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 1, remainingQty: 0 }]);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.patient.findUnique.mockResolvedValue({ id: "p1", creditLimit: 0 } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 1 }], patientId: "p1", paymentMode: "credit", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 400);
+    });
+
+    it("rejects credit sale over the patient limit", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 2, remainingQty: 0 }]);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.patient.findUnique.mockResolvedValue({ id: "p1", creditLimit: 30 } as never);
+      prismaMock.sale.aggregate.mockResolvedValue({ _sum: { finalAmount: 25 } } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 2 }], patientId: "p1", paymentMode: "credit", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 400);
+    });
+
+    it("allows credit sale within the patient limit", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 1, remainingQty: 0 }]);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.patient.findUnique.mockResolvedValue({ id: "p1", creditLimit: 100 } as never);
+      prismaMock.sale.aggregate.mockResolvedValue({ _sum: { finalAmount: 25 } } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      prismaMock.sale.create.mockResolvedValue({ id: "s1", invoiceNumber: "INV-001", items: [], patient: {} } as never);
+      prismaMock.invoiceCounter.upsert.mockResolvedValue({ prefix: "INV", counter: 1 } as never);
+      prismaMock.auditLog.create.mockResolvedValue({} as never);
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 1 }], patientId: "p1", paymentMode: "credit", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 201);
+    });
+
+    it("requires prescription for Schedule H medicines", async () => {      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Amoxicillin", sellingPrice: 120, mrp: 150, gstRate: 12, scheduleType: "H" } as never);
       prismaMock.batch.findMany.mockResolvedValue([{ id: "b1", batchNumber: "B-001", quantity: 50, expiryDate: new Date("2027-01-01") }] as never);
       const { pickBatchFEFO } = await import("@/lib/inventory");
       (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 10, remainingQty: 0 }]);

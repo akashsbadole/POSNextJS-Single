@@ -14,14 +14,14 @@ interface Patient {
   gender: string | null; dateOfBirth: string | null; age?: number | null;
   bloodGroup?: string | null; address?: string | null; city?: string | null;
   state?: string | null; pincode?: string | null; gstin?: string | null;
-  allergies?: string; chronicConditions?: string;
+  allergies?: string; chronicConditions?: string; creditLimit?: number;
   _count: { prescriptions: number; sales: number };
 }
 
 const defaultForm = {
   name: "", phone: "", email: "", dateOfBirth: "", age: 0, gender: "",
   bloodGroup: "", address: "", city: "", state: "", pincode: "", gstin: "",
-  allergies: "", chronicConditions: "",
+  allergies: "", chronicConditions: "", creditLimit: 0,
 };
 
 export default function PatientsPage() {
@@ -60,6 +60,7 @@ export default function PatientsPage() {
       address: p.address || "", city: p.city || "", state: p.state || "",
       pincode: p.pincode || "", gstin: p.gstin || "",
       allergies: p.allergies || "", chronicConditions: p.chronicConditions || "",
+      creditLimit: p.creditLimit || 0,
     });
     setEditId(p.id); setShowForm(true);
   };
@@ -110,6 +111,7 @@ export default function PatientsPage() {
                     <TableHead>Gender</TableHead>
                     <TableHead>Prescriptions</TableHead>
                     <TableHead>Sales</TableHead>
+                    <TableHead>Credit Limit</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -131,12 +133,13 @@ export default function PatientsPage() {
                       <TableCell className="capitalize">{p.gender || "—"}</TableCell>
                       <TableCell>{p._count.prescriptions}</TableCell>
                       <TableCell>{p._count.sales}</TableCell>
+                      <TableCell>{p.creditLimit ? `₹${p.creditLimit.toLocaleString("en-IN")}` : "No credit"}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => openEdit(p)}><Edit className="w-4 h-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
-                  {patients.length === 0 && (<TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-500">No patients found</TableCell></TableRow>)}
+                  {patients.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-500">No patients found</TableCell></TableRow>)}
                 </TableBody>
               </Table>
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
@@ -168,6 +171,7 @@ export default function PatientsPage() {
               <div><label className="text-sm font-medium">State</label><Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
               <div><label className="text-sm font-medium">Pincode</label><Input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} /></div>
               <div><label className="text-sm font-medium">GSTIN</label><Input value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value })} /></div>
+              <div><label className="text-sm font-medium">Credit Limit (₹)</label><Input type="number" min={0} value={form.creditLimit || ""} onChange={(e) => setForm({ ...form, creditLimit: Number(e.target.value) })} /><p className="text-xs text-gray-500 mt-1">0 = no credit sales</p></div>
               <div><label className="text-sm font-medium">Allergies</label><Input placeholder="Comma separated" value={form.allergies} onChange={(e) => setForm({ ...form, allergies: e.target.value })} /></div>
               <div><label className="text-sm font-medium">Chronic Conditions</label><Input placeholder="Comma separated" value={form.chronicConditions} onChange={(e) => setForm({ ...form, chronicConditions: e.target.value })} /></div>
             </div>
