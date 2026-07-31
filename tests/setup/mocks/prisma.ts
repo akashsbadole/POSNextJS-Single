@@ -56,7 +56,7 @@ const modelNames = [
   "inventory", "batch", "stockTransfer", "stockTransferItem",
   "patient", "doctor", "prescription", "prescriptionItem",
   "sale", "saleItem", "payment", "saleReturn", "saleReturnItem",
-  "purchaseOrder", "purchaseOrderItem", "gRN", "gRNItem", "supplierPayment",
+  "purchaseOrder", "purchaseOrderItem", "purchaseReturn", "purchaseReturnItem", "gRN", "gRNItem", "supplierPayment",
   "onlineOrder", "onlineOrderItem",
   "subscription", "subscriptionItem", "subscriptionDelivery",
   "loyaltyPoint", "loyaltyTier",

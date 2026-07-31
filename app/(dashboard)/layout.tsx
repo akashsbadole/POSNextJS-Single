@@ -38,6 +38,7 @@ import {
   Languages,
   ClipboardList,
   ArrowLeftRight,
+  ArrowUpLeft,
   ScanLine,
   ShieldCheck,
 } from "lucide-react";
@@ -118,6 +119,7 @@ const navItems = [
       { title: "Purchase Orders", href: "/purchases/orders", icon: FileText },
       { title: "GRN", href: "/purchases/grn", icon: Package },
       { title: "Payments", href: "/purchases/payments", icon: DollarSign },
+      { title: "Returns", href: "/purchases/returns", icon: ArrowUpLeft },
     ],
   },
   {
