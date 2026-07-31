@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { items, patientId, prescriptionId, paymentMode, discountType, discountValue, branchId } = body;
+    const { items, patientId, prescriptionId, paymentMode, discountType, discountValue, branchId, salesmanId } = body;
     if (!Array.isArray(items) || items.length === 0 || !branchId) {
       return NextResponse.json({ error: "Items and branch are required" }, { status: 400 });
     }
@@ -140,6 +140,11 @@ export async function POST(req: NextRequest) {
       const paymentStatus = mode === "credit" ? "PENDING" : "PAID";
       const invoiceNumber = await generateInvoiceNumber("INV");
 
+      if (salesmanId) {
+        const salesman = await tx.salesman.findUnique({ where: { id: salesmanId } });
+        if (!salesman) throw new Error("Salesman not found");
+      }
+
       const sale = await tx.sale.create({
         data: {
           invoiceNumber,
@@ -147,6 +152,7 @@ export async function POST(req: NextRequest) {
           patientId,
           prescriptionId,
           cashierId,
+          salesmanId: salesmanId || null,
           subtotal,
           discountAmount,
           discountType,
@@ -266,6 +272,7 @@ export async function POST(req: NextRequest) {
       : message.startsWith("Insufficient stock") ? 400
       : message.startsWith("Invalid discount") ? 400
       : message.startsWith("Credit") ? 400
+      : message.startsWith("Salesman not found") ? 400
       : 500;
     if (status === 500) console.error("Error creating sale:", error);
     return NextResponse.json({ error: message }, { status });

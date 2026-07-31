@@ -62,6 +62,7 @@ const modelNames = [
   "loyaltyPoint", "loyaltyTier",
   "auditLog", "notification", "setting", "expense",
   "ledgerAccount", "journalEntry", "journalLine",
+  "salesman",
   "customFieldDefinition", "customFieldValue",
   "drugLicense", "scheme", "promiseOrder",
   "cart", "cartItem",

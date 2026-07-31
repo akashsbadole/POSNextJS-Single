@@ -43,6 +43,7 @@ import {
   ShieldCheck,
   BookOpen,
   Wallet,
+  UserCheck,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -110,6 +111,7 @@ const navItems = [
       { title: "Invoices", href: "/sales/invoices", icon: Receipt },
       { title: "Returns", href: "/sales/returns", icon: ArrowDownRight },
       { title: "Promise Orders", href: "/sales/promise-orders", icon: Bell },
+      { title: "Salesmen", href: "/salesmen", icon: UserCheck },
     ],
   },
   {

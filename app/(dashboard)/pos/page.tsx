@@ -64,6 +64,8 @@ export default function POSPage() {
   const [patientName, setPatientName] = useState("");
   const [patientSearch, setPatientSearch] = useState("");
   const [patientResults, setPatientResults] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [salesmen, setSalesmen] = useState<{ id: string; name: string }[]>([]);
+  const [salesmanId, setSalesmanId] = useState("");
 
   useEffect(() => {
     fetch("/api/medicines?limit=1000")
@@ -74,6 +76,10 @@ export default function POSPage() {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => setTaxInclusive(d?.settings?.find?.((s: { key: string; value: string }) => s.key === "taxInclusive")?.value === "true"))
+      .catch(() => {});
+    fetch("/api/salesmen")
+      .then((r) => r.json())
+      .then((d) => setSalesmen(d.salesmen || []))
       .catch(() => {});
   }, []);
 
@@ -157,6 +163,7 @@ export default function POSPage() {
       <div class="muted">${invoiceNumber ? `Invoice: ${invoiceNumber}<br>` : ""}${new Date().toLocaleString()}</div>
       <table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="muted" style="display:flex;justify-content:space-between"><span>Payment: ${paymentMode.toUpperCase()}</span><span>GST ${taxInclusive ? "incl." : "excl."}</span></div>
+      ${salesmanId ? `<div class="muted">Salesman: ${salesmen.find((s) => s.id === salesmanId)?.name || ""}</div>` : ""}
       <div class="total" style="display:flex;justify-content:space-between;margin-top:8px"><span>Total</span><span>₹${finalAmount.toFixed(2)}</span></div>
       <script>window.onload=()=>{window.print();}</script>
       </body></html>`);
@@ -185,6 +192,7 @@ export default function POSPage() {
           branchId: session?.user?.branchId || "",
           patientId: patientId || undefined,
           cashierId: session?.user?.id || "",
+          salesmanId: salesmanId || undefined,
         }),
       });
       if (!res.ok) {
@@ -437,6 +445,22 @@ export default function POSPage() {
               </div>
             )}
           </div>
+
+          {salesmen.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Salesman (optional)</label>
+              <select
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={salesmanId}
+                onChange={(e) => setSalesmanId(e.target.value)}
+              >
+                <option value="">None</option>
+                {salesmen.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
