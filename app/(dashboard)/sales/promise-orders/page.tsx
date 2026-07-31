@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { sendTemplate } from "@/lib/whatsapp";
 
 interface PromiseOrder {
   id: string;
@@ -96,7 +95,13 @@ export default function PromiseOrdersPage() {
       toast.success("Order fulfilled");
       fetchOrders();
       if (order.customerPhone) {
-        sendTemplate(order.customerPhone, "promise_order_fulfilled", { customerName: order.customerName, medicineName: order.medicine.name });
+        fetch("/api/whatsapp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: order.customerPhone, templateId: "promise_order_fulfilled", params: { customerName: order.customerName, medicineName: order.medicine.name } }),
+        }).then((r) => r.json()).then((d) => {
+          if (!d.success) toast.error("Order fulfilled, but WhatsApp not sent: " + (d.error || "unconfigured"));
+        }).catch(() => {});
       }
     } catch {
       toast.error("Failed to fulfill order");

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { verifyHubSignature } from "@/lib/whatsapp";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN || process.env.WHATSAPP_API_KEY || "";
 
-  if (mode === "subscribe" && token === process.env.WHATSAPP_API_KEY && challenge) {
+  if (mode === "subscribe" && token && expected && token === expected && challenge) {
     // Meta requires the raw challenge text, not JSON
     return new NextResponse(challenge, { status: 200 });
   }
@@ -16,15 +18,26 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const webhookSecret = process.env.WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return NextResponse.json({ error: "WEBHOOK_SECRET not configured" }, { status: 503 });
+  const rawBody = await req.text();
+  // Meta Cloud API signs with X-Hub-Signature-256; 360dialog-style setups use a plain header secret
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  const hubSignature = req.headers.get("x-hub-signature-256");
+  const headerSecret = process.env.WEBHOOK_SECRET;
+
+  if (appSecret && hubSignature) {
+    if (!verifyHubSignature(rawBody, hubSignature, appSecret)) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+  } else if (headerSecret) {
+    if (req.headers.get("x-webhook-secret") !== headerSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+  } else {
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 503 });
   }
-  if (req.headers.get("x-webhook-secret") !== webhookSecret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+
   try {
-    const body = await req.json();
+    const body = JSON.parse(rawBody);
     const entry = body.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
