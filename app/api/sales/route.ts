@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber, calculateGST, calculateGSTInclusive } from "@/lib/utils";
 import { pickBatchFEFO } from "@/lib/inventory";
+import { evaluateSchemes } from "@/lib/schemes";
 import { postJournal } from "@/lib/accounting";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
@@ -36,12 +37,37 @@ export async function POST(req: NextRequest) {
       let subtotal = 0;
       const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; discountAmount: number; cgstAmount: number; sgstAmount: number; totalAmount: number; batchNumber?: string }[] = [];
 
+      const now = new Date();
+      const schemes = await tx.scheme.findMany({
+        where: {
+          isActive: true,
+          AND: [
+            { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+            { OR: [{ validTo: null }, { validTo: { gte: now } }] },
+          ],
+        },
+      });
+      const cartPrices = new Map(items.map((i: { medicineId: string }) => [i.medicineId, 0]));
+      for (const i of items) {
+        const m = await tx.medicine.findUnique({ where: { id: i.medicineId } });
+        if (m) cartPrices.set(i.medicineId, m.sellingPrice);
+      }
+      const schemeEval = evaluateSchemes(schemes, items.map((i: { medicineId: string; quantity: number }) => ({
+        medicineId: i.medicineId,
+        quantity: i.quantity,
+        price: cartPrices.get(i.medicineId) || 0,
+      })));
+      const allItems = [
+        ...items,
+        ...schemeEval.freeGoods.map((g) => ({ medicineId: g.medicineId, quantity: g.quantity, __free: true })),
+      ];
+
       const scheduleHMeds: string[] = [];
       const itemTotals: number[] = [];
       const itemDiscounts: number[] = [];
       const batchPicksMap = new Map<string, Awaited<ReturnType<typeof pickBatchFEFO>>>();
 
-      for (const item of items) {
+      for (const item of allItems) {
         const medicine = await tx.medicine.findUnique({
           where: { id: item.medicineId },
         });
@@ -54,8 +80,13 @@ export async function POST(req: NextRequest) {
           scheduleHMeds.push(medicine.name);
         }
 
-        const itemDiscount = item.discountAmount || 0;
+        const isFree = (item as { __free?: boolean }).__free === true;
         const itemTotal = medicine.sellingPrice * item.quantity;
+        const schemePct = schemeEval.linePcts.get(item.medicineId) || 0;
+        // ponytail: scheme discount merges into the line discount; only the scheme part caps at the line
+        const manual = item.discountAmount || 0;
+        const schemeLineDiscount = manual < itemTotal ? Math.min(Math.round(itemTotal * schemePct) / 100, itemTotal - manual) : 0;
+        const itemDiscount = isFree ? 0 : manual + schemeLineDiscount;
         if (itemDiscount < 0 || itemDiscount > itemTotal) {
           throw new Error(`Invalid discount on ${medicine.name}`);
         }
@@ -75,7 +106,7 @@ export async function POST(req: NextRequest) {
         saleItemsData.push({
           medicineId: item.medicineId,
           quantity: item.quantity,
-          unitPrice: medicine.sellingPrice,
+          unitPrice: isFree ? 0 : medicine.sellingPrice,
           mrp: medicine.mrp,
           gstRate: medicine.gstRate,
           discountAmount: itemDiscount,
@@ -96,6 +127,8 @@ export async function POST(req: NextRequest) {
       } else if (discountType === "flat") {
         discountAmount = discountValue;
       }
+      // ponytail: CASH_DISCOUNT schemes stack on the manual order discount
+      discountAmount += (subtotal * schemeEval.orderPct) / 100;
 
       let totalCGST = 0;
       let totalSGST = 0;

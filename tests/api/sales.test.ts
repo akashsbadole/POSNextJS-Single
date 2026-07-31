@@ -23,6 +23,7 @@ describe("Sales API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     armLedgerMocks();
+    prismaMock.scheme.findMany.mockResolvedValue([] as never);
   });
 
   describe("GET", () => {
