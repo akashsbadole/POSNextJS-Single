@@ -2,6 +2,8 @@ import { PATCH } from "@/app/api/sales/[id]/route";
 import { prismaMock, armLedgerMocks } from "../setup/mocks/prisma";
 import { createRequest, expectStatus, setRole } from "../helpers";
 
+jest.mock("@/lib/utils", () => ({ generateInvoiceNumber: jest.fn(() => "JRN-1") }));
+
 describe("Sale settle API", () => {
   beforeEach(() => {
     jest.clearAllMocks();

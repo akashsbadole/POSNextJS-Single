@@ -20,8 +20,10 @@ jest.mock("@/lib/inventory", () => ({
 }));
 
 describe("Sales API", () => {
-  beforeEach(() => jest.clearAllMocks());
-  armLedgerMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    armLedgerMocks();
+  });
 
   describe("GET", () => {
     it("lists sales with pagination", async () => {

@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
       const rTaxable = Math.round(taxableAmount * 100) / 100;
       const rCGST = Math.round(totalCGST * 100) / 100;
       const rSGST = Math.round(totalSGST * 100) / 100;
-      const roundOff = Math.round((finalAmount - rTaxable - rCGST - rSGST) * 100) / 100;
+      const journalRoundOff = Math.round((finalAmount - rTaxable - rCGST - rSGST) * 100) / 100;
       await postJournal(tx, {
         memo: `Sale ${invoiceNumber}`,
         referenceType: "sale",
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
           { accountCode: "4010", credit: rTaxable },
           { accountCode: "2020", credit: rCGST },
           { accountCode: "2030", credit: rSGST },
-          ...(roundOff > 0 ? [{ accountCode: "2090", credit: roundOff }] : roundOff < 0 ? [{ accountCode: "2090", debit: -roundOff }] : []),
+          ...(journalRoundOff > 0 ? [{ accountCode: "2090", credit: journalRoundOff }] : journalRoundOff < 0 ? [{ accountCode: "2090", debit: -journalRoundOff }] : []),
         ],
       });
 

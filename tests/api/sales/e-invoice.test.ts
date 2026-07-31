@@ -10,8 +10,10 @@ jest.mock("@/lib/gsp", () => ({
 const mockParams = { params: Promise.resolve({ id: "s1" }) };
 
 describe("E-Invoice API", () => {
-  beforeEach(() => jest.clearAllMocks());
-  armLedgerMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    armLedgerMocks();
+  });
 
   it("generates e-invoice for a sale", async () => {
     prismaMock.sale.findUnique.mockResolvedValue({

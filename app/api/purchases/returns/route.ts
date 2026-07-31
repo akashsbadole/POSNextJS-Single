@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
         referenceId: created.id,
         createdById: session.user.id,
         lines: [
-          { accountCode: "2010", debit: Math.round(created.totalAmount * 100) / 100 },
+          { accountCode: "2010", debit: Math.round((subtotal + gstTotal) * 100) / 100 },
           { accountCode: "1200", credit: Math.round(subtotal * 100) / 100 },
           { accountCode: "2040", credit: Math.round((gstTotal / 2) * 100) / 100 },
           { accountCode: "2050", credit: Math.round((gstTotal / 2) * 100) / 100 },

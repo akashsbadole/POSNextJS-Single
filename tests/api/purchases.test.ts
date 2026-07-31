@@ -5,8 +5,10 @@ import { createRequest, expectJson, expectStatus } from "../helpers";
 jest.mock("@/lib/utils", () => ({ generateInvoiceNumber: jest.fn(() => "PO-260701-00001") }));
 
 describe("Purchases API", () => {
-  beforeEach(() => jest.clearAllMocks());
-  armLedgerMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    armLedgerMocks();
+  });
 
   it("lists purchase orders with pagination", async () => {
     prismaMock.purchaseOrder.findMany.mockResolvedValue([{ id: "po1", poNumber: "PO-001", items: [], supplier: { name: "Supplier" }, branch: { name: "Branch" }, createdBy: { name: "User" } }] as never);
