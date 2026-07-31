@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
     values.forEach((v) => { mapped[v.field.fieldName] = v.value; });
 
     return NextResponse.json({ values, mapped });
-  } catch {
+  } catch (error) {
+    console.error("Error fetching custom field values:", error);
     return NextResponse.json({ error: "Failed to fetch values" }, { status: 500 });
   }
 }
@@ -55,7 +56,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, count: results.length });
-  } catch {
+  } catch (error) {
+    console.error("Error saving custom field values:", error);
     return NextResponse.json({ error: "Failed to save values" }, { status: 500 });
   }
 }

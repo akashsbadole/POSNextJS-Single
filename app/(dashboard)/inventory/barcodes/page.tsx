@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -78,9 +79,11 @@ export default function BarcodesPage() {
                 )}
                 {m.qrCode && (
                   <div className="mt-2 text-center">
-                    <img
+                    <Image
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(m.qrCode)}`}
                       alt="QR"
+                      width={80}
+                      height={80}
                       className="w-20 h-20"
                     />
                     <p className="text-[10px] text-gray-400 mt-1">QR Code</p>

@@ -13,7 +13,7 @@ describe("Drug Licenses API", () => {
 
   it("creates a license", async () => {
     prismaMock.drugLicense.create.mockResolvedValue({ id: "dl1", licenseNumber: "DL-001" } as never);
-    const { json, res } = await expectJson(POST, createRequest("/api/drug-licenses", { method: "POST", body: { licenseNumber: "DL-001", holderName: "My Pharmacy", holderType: "RETAIL", issueDate: "2026-01-01", expiryDate: "2027-01-01" } }));
+    const { json, res } = await expectJson(POST, createRequest("/api/drug-licenses", { method: "POST", body: { licenseType: "DL_21B", licenseNumber: "DL-001", holderName: "My Pharmacy", holderType: "BRANCH", holderId: "b1", expiryDate: "2027-01-01T00:00:00Z" } }));
     expect(res.status).toBe(201);
   });
 

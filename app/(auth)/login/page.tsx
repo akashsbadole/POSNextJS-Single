@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, Smartphone, Building2 } from "lucide-react";
+import { getLocalCart, upsertCartItem } from "@/lib/cart-sync";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [twoFAToken, setTwoFAToken] = useState("");
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +38,11 @@ export default function LoginPage() {
       if (result?.error) {
         toast.error("Invalid email or password");
       } else {
+        const local = getLocalCart();
+        for (const item of local) upsertCartItem(item.medicineId, item.quantity);
+        const statusRes = await fetch(`/api/auth/2fa/status?email=${encodeURIComponent(email)}`);
+        const { enabled } = await statusRes.json();
+        if (enabled) { setShow2FA(true); setIsLoading(false); return; }
         toast.success("Login successful!");
         router.push("/dashboard");
         router.refresh();
@@ -98,6 +106,23 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handle2FA = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, token: twoFAToken }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Invalid code"); }
+      toast.success("Login successful!");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Verification failed");
+    } finally { setIsLoading(false); }
   };
 
   return (
@@ -227,14 +252,31 @@ export default function LoginPage() {
               </form>
             )}
 
-            <div className="relative my-6">
+            {show2FA && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium text-center">Enter your 2FA code</p>
+                <Input
+                  placeholder="000000"
+                  value={twoFAToken}
+                  onChange={(e) => setTwoFAToken(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="text-center text-2xl font-mono tracking-widest"
+                  maxLength={6}
+                />
+                <Button className="w-full" onClick={handle2FA} disabled={twoFAToken.length !== 6 || isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Verify & Login
+                </Button>
+              </div>
+            )}
+
+            {!show2FA && <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
-            </div>
+            </div>}
 
             <Button
               variant="outline"

@@ -16,6 +16,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const secret = req.headers.get("x-webhook-secret");
+  if (secret !== process.env.WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   try {
     const body = await req.json();
     const entry = body.entry?.[0];

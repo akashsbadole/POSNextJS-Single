@@ -15,7 +15,7 @@ describe("Online Store Orders API", () => {
   });
 
   it("creates an order", async () => {
-    prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", sellingPrice: 100 } as never);
+    prismaMock.medicine.findMany.mockResolvedValue([{ id: "m1", sellingPrice: 100, name: "Paracetamol", inventories: [{ quantity: 50 }] }] as never);
     prismaMock.onlineOrder.create.mockResolvedValue({ id: "o1", orderNumber: "ORD-001", items: [] } as never);
     prismaMock.invoiceCounter.upsert.mockResolvedValue({ prefix: "ORD", counter: 1 } as never);
     const { json, res } = await expectJson(POST, createRequest("/api/online-store/orders", { method: "POST", body: { customerId: "c1", items: [{ medicineId: "m1", quantity: 2 }] } }));

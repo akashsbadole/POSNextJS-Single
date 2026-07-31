@@ -43,12 +43,16 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { items, ...orderData } = body;
+    const { items, branchId, supplierId, notes, expectedDate } = body;
 
     const order = await prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.create({
         data: {
-          ...orderData,
+          branchId,
+          supplierId,
+          notes,
+          expectedDate: expectedDate ? new Date(expectedDate) : undefined,
+          createdById: session.user.id,
           poNumber: await generateInvoiceNumber("PO"),
           status: "DRAFT",
           items: {

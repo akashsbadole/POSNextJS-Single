@@ -7,8 +7,9 @@ describe("Promise Orders API", () => {
 
   it("lists orders", async () => {
     prismaMock.promiseOrder.findMany.mockResolvedValue([{ id: "po1", medicine: {}, customerName: "John", status: "PENDING" }] as never);
+    prismaMock.promiseOrder.count.mockResolvedValue(1);
     const { json } = await expectJson(GET, createRequest("/api/promise-orders"));
-    expect(json).toHaveLength(1);
+    expect(json.orders).toHaveLength(1);
   });
 
   it("creates an order", async () => {

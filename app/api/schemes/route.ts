@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { enforceFeature } from "@/lib/features";
+
+const schemeSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  schemeType: z.enum(["FREE_GOODS", "CASH_DISCOUNT", "COMBO", "BULK_DISCOUNT"]),
+  conditions: z.string().optional(),
+  rewards: z.string().optional(),
+  priority: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+  validFrom: z.string().datetime().optional(),
+  validTo: z.string().datetime().optional(),
+});
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
@@ -29,9 +43,13 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const scheme = await prisma.scheme.create({ data: body });
+    const validated = schemeSchema.parse(body);
+    const scheme = await prisma.scheme.create({ data: validated });
     return NextResponse.json(scheme, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating scheme:", error);
     return NextResponse.json({ error: "Failed to create scheme" }, { status: 500 });
   }

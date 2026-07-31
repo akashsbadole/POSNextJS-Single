@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+
+const licenseSchema = z.object({
+  licenseType: z.string().min(1),
+  licenseNumber: z.string().min(1),
+  holderName: z.string().min(1),
+  holderType: z.string().min(1),
+  holderId: z.string().min(1),
+  issuingAuthority: z.string().optional(),
+  issueDate: z.string().datetime().optional(),
+  expiryDate: z.string().datetime(),
+});
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
@@ -29,9 +41,13 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const license = await prisma.drugLicense.create({ data: body });
+    const validated = licenseSchema.parse(body);
+    const license = await prisma.drugLicense.create({ data: validated });
     return NextResponse.json(license, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating drug license:", error);
     return NextResponse.json({ error: "Failed to create drug license" }, { status: 500 });
   }

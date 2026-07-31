@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-
-export const config = {
-  api: { bodyParser: false },
-};
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const formData = await req.formData();
     const file = formData.get("image") as File | null;
@@ -20,13 +19,23 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(bytes);
     const ext = path.extname(file.name) || ".jpg";
     const filename = `${randomUUID()}${ext}`;
-    const filepath = path.join(process.cwd(), "public", "uploads", "prescriptions", filename);
+    const dir = path.join(process.cwd(), "public", "uploads", "prescriptions");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, filename), buffer);
 
-    await writeFile(filepath, buffer);
+    const ocrText = formData.get("ocrText") as string | null;
+    if (ocrText) {
+      await writeFile(path.join(dir, `${filename}.txt`), ocrText);
+    }
 
-    return NextResponse.json({ url: `/uploads/prescriptions/${filename}` });
+    return NextResponse.json({
+      url: `/uploads/prescriptions/${filename}`,
+      ocrText,
+    });
   } catch (error) {
     console.error("Error uploading prescription:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
+
+// ponytail: local fs storage. Upgrade to S3/R2 when multi-server or backup needs arise.

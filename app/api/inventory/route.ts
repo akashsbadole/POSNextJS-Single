@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const branchId = searchParams.get("branchId");
     const lowStock = searchParams.get("lowStock") === "true";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
     const where: Record<string, unknown> = {};
     if (branchId) where.branchId = branchId;

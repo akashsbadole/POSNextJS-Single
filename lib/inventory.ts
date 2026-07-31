@@ -7,8 +7,15 @@ export type BatchPick = {
   remainingQty: number;
 };
 
-export async function pickBatchFEFO(medicineId: string, branchId: string, qty: number): Promise<BatchPick[]> {
-  const batches = await prisma.batch.findMany({
+type TxClient = {
+  batch: {
+    findMany: (args: Record<string, unknown>) => Promise<{ id: string; batchNumber: string; quantity: number; expiryDate: Date }[]>;
+  };
+};
+
+export async function pickBatchFEFO(medicineId: string, branchId: string, qty: number, tx?: TxClient): Promise<BatchPick[]> {
+  const client = tx || prisma;
+  const batches = await client.batch.findMany({
     where: {
       medicineId,
       inventory: { branchId },

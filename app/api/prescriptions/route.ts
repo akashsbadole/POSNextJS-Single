@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const { patientId, doctorId, items, createdById, imageUrl, ocrText } = body;
+    const { patientId, doctorId, items, imageUrl, ocrText } = body;
 
-    if (!patientId || !createdById) {
-      return NextResponse.json({ error: "patientId and createdById are required" }, { status: 400 });
+    if (!patientId) {
+      return NextResponse.json({ error: "patientId is required" }, { status: 400 });
     }
 
     const prescription = await prisma.prescription.create({
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         prescriptionNumber: await generateInvoiceNumber("RX"),
         patientId,
         doctorId,
-        createdById,
+        createdById: session.user.id,
         status: "PENDING",
         imageUrl,
         ocrText,

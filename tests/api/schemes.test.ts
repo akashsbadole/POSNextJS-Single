@@ -19,7 +19,7 @@ describe("Schemes API", () => {
 
   it("creates a scheme", async () => {
     prismaMock.scheme.create.mockResolvedValue({ id: "sch1", name: "New Scheme" } as never);
-    const { json, res } = await expectJson(POST, createRequest("/api/schemes", { method: "POST", body: { name: "New Scheme", discountType: "PERCENTAGE", discountValue: 10 } }));
+    const { json, res } = await expectJson(POST, createRequest("/api/schemes", { method: "POST", body: { name: "New Scheme", schemeType: "CASH_DISCOUNT", conditions: "{}", rewards: "{}", priority: 0, isActive: true } }));
     expect(res.status).toBe(201);
   });
 

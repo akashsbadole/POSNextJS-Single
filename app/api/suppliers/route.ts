@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+
+const supplierSchema = z.object({
+  name: z.string().min(1),
+  contactPerson: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  gstin: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  paymentTerms: z.string().optional(),
+});
 
 export async function GET() {
   const session = await requireAuth();
@@ -21,9 +35,13 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const supplier = await prisma.supplier.create({ data: body });
+    const validated = supplierSchema.parse(body);
+    const supplier = await prisma.supplier.create({ data: validated });
     return NextResponse.json(supplier, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating supplier:", error);
     return NextResponse.json({ error: "Failed to create supplier" }, { status: 500 });
   }

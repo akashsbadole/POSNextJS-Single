@@ -19,10 +19,10 @@ describe("POST /api/auth/verify-otp", () => {
     const { res } = await expectStatus(POST, createRequest("/api/auth/verify-otp", { method: "POST", body: { phone: "9876543210" } }), 400);
   });
 
-  it("returns 404 for unknown user", async () => {
+  it("returns 400 for unknown user", async () => {
     const { verifyOTP } = jest.requireMock("@/lib/auth-utils") as { verifyOTP: jest.Mock };
     verifyOTP.mockResolvedValue({ success: true });
     prismaMock.user.findUnique.mockResolvedValue(null);
-    const { res } = await expectStatus(POST, createRequest("/api/auth/verify-otp", { method: "POST", body: { phone: "9999999999", otp: "123456" } }), 404);
+    const { res } = await expectStatus(POST, createRequest("/api/auth/verify-otp", { method: "POST", body: { phone: "9999999999", otp: "123456" } }), 400);
   });
 });

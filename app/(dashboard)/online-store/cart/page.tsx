@@ -9,6 +9,9 @@ import { ShoppingCart, Trash2, Minus, Plus, ArrowLeft, CreditCard, Loader2 } fro
 import Link from "next/link";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { fetchServerCart, upsertCartItem, removeCartItem, clearServerCart, getLocalCart, setLocalCart, mergeCarts } from "@/lib/cart-sync";
+
+declare global { interface Window { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void }; } }
 
 interface CartItem { id: string; name: string; price: number; quantity: number; prescription: boolean; }
 
@@ -20,13 +23,18 @@ export default function CartPage() {
   const [address, setAddress] = useState("");
 
   useEffect(() => {
-    const raw = localStorage.getItem("cart");
-    const ids: { id: string; quantity: number }[] = raw ? JSON.parse(raw) : [];
-    if (ids.length === 0) { setLoading(false); return; }
-    const qs = new URLSearchParams({ search: "", category: "all" });
-    fetch(`/api/online-store/products?${qs.toString()}&limit=100`)
-      .then((r) => r.json())
-      .then((d) => {
+    (async () => {
+      let ids: { id: string; quantity: number }[] = getLocalCart().map((i) => ({ id: i.medicineId, quantity: i.quantity }));
+      if (ids.length === 0 && session?.user?.id) {
+        const serverItems = await fetchServerCart();
+        ids = serverItems.map((i) => ({ id: i.medicineId, quantity: i.quantity }));
+        if (ids.length > 0) setLocalCart(serverItems);
+      }
+      if (ids.length === 0) { setLoading(false); return; }
+      const qs = new URLSearchParams({ search: "", category: "all" });
+      try {
+        const r = await fetch(`/api/online-store/products?${qs.toString()}&limit=100`);
+        const d = await r.json();
         const map = new Map<string, { id: string; name: string; price: number; prescription: boolean }>((d.products || []).map((p: { id: string; name: string; price: number; prescription: boolean }) => [p.id, p]));
         const loaded: CartItem[] = [];
         for (const i of ids) {
@@ -34,19 +42,24 @@ export default function CartPage() {
           if (p) loaded.push({ id: p.id, name: p.name, price: p.price, quantity: i.quantity, prescription: p.prescription });
         }
         setItems(loaded);
-      })
-      .catch(() => toast.error("Failed to load cart"))
-      .finally(() => setLoading(false));
-  }, []);
+        if (session?.user?.id) for (const item of loaded) upsertCartItem(item.id, item.quantity);
+      } catch { toast.error("Failed to load cart"); }
+      finally { setLoading(false); }
+    })();
+  }, [session]);
 
   const persist = (next: CartItem[]) => {
     setItems(next);
-    localStorage.setItem("cart", JSON.stringify(next.map((i) => ({ id: i.id, quantity: i.quantity }))));
+    setLocalCart(next.map((i) => ({ medicineId: i.id, quantity: i.quantity })));
+    if (session?.user?.id) for (const item of next) upsertCartItem(item.id, item.quantity);
   };
 
   const updateQty = (id: string, delta: number) =>
     persist(items.map((i) => i.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
-  const removeItem = (id: string) => persist(items.filter((i) => i.id !== id));
+  const removeItem = (id: string) => {
+    persist(items.filter((i) => i.id !== id));
+    if (session?.user?.id) removeCartItem(id);
+  };
 
   const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const gst = total * 0.05;
@@ -58,22 +71,36 @@ export default function CartPage() {
     if (rx) { toast.error(`${rx.name} requires a prescription upload`); return; }
     setCheckingOut(true);
     try {
-      const res = await fetch("/api/online-store/orders", {
+      const res = await fetch("/api/online-store/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: session.user.id,
           items: items.map((i) => ({ medicineId: i.id, quantity: i.quantity })),
           shippingAddress: address,
           paymentMode: "prepaid",
         }),
       });
-      if (res.ok) {
+      if (!res.ok) { toast.error("Checkout failed"); return; }
+      const data = await res.json();
+
+      if (data.razorpayOrderId && typeof window.Razorpay !== "undefined") {
+        const rp = new window.Razorpay({
+          key: data.razorpayKeyId,
+          order_id: data.razorpayOrderId,
+          handler: () => {
+            toast.success("Payment successful! Order placed.");
+            localStorage.removeItem("cart");
+            setItems([]);
+            clearServerCart();
+          },
+          modal: { ondismiss: () => setCheckingOut(false) },
+        });
+        rp.open();
+      } else {
         toast.success("Order placed!");
         localStorage.removeItem("cart");
         setItems([]);
-      } else {
-        toast.error("Checkout failed");
+        clearServerCart();
       }
     } catch {
       toast.error("Checkout failed");

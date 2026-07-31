@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+
+const doctorSchema = z.object({
+  name: z.string().min(1),
+  rmpNumber: z.string().optional(),
+  specialty: z.string().optional(),
+  clinicName: z.string().optional(),
+  clinicAddress: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+});
 
 export async function GET() {
   const session = await requireAuth();
@@ -19,9 +30,13 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const doctor = await prisma.doctor.create({ data: body });
+    const validated = doctorSchema.parse(body);
+    const doctor = await prisma.doctor.create({ data: validated });
     return NextResponse.json(doctor, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating doctor:", error);
     return NextResponse.json({ error: "Failed to create doctor" }, { status: 500 });
   }

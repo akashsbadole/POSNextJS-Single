@@ -298,6 +298,9 @@ model StockTransfer {
 
   items         StockTransferItem[]
 
+  @@index([fromBranchId, status])
+  @@index([toBranchId, status])
+  @@index([status, createdAt])
   @@map("stock_transfers")
 }
 
@@ -465,6 +468,8 @@ model Sale {
   @@index([branchId])
   @@index([cashierId])
   @@index([paymentStatus])
+  @@index([branchId, createdAt])
+  @@index([paymentStatus, createdAt])
   @@map("sales")
 }
 
@@ -694,6 +699,9 @@ model OnlineOrder {
 
   items         OnlineOrderItem[]
 
+  @@index([customerId, status])
+  @@index([status, createdAt])
+  @@index([paymentStatus])
   @@map("online_orders")
 }
 
@@ -735,6 +743,8 @@ model Subscription {
   items       SubscriptionItem[]
   deliveries  SubscriptionDelivery[]
 
+  @@index([status, nextDeliveryDate])
+  @@index([customerId, status])
   @@map("subscriptions")
 }
 
@@ -762,6 +772,34 @@ model SubscriptionDelivery {
   status      String       @default("SCHEDULED")
 
   @@map("subscription_deliveries")
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String  @map("cart_id")
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  medicineId String @map("medicine_id")
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  quantity   Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([cartId, medicineId])
+  @@map("cart_items")
 }
 
 model LoyaltyPoint {

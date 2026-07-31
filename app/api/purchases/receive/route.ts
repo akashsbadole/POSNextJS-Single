@@ -21,20 +21,11 @@ export async function POST(req: NextRequest) {
         const { medicineId, quantity } = item;
         if (!medicineId || !quantity) continue;
 
-        const existing = await tx.inventory.findFirst({
-          where: { medicineId, branchId },
+        await tx.inventory.upsert({
+          where: { medicineId_branchId: { medicineId, branchId } },
+          update: { quantity: { increment: quantity } },
+          create: { medicineId, branchId, quantity },
         });
-
-        if (existing) {
-          await tx.inventory.update({
-            where: { id: existing.id },
-            data: { quantity: existing.quantity + quantity },
-          });
-        } else {
-          await tx.inventory.create({
-            data: { medicineId, branchId, quantity },
-          });
-        }
       }
     });
 

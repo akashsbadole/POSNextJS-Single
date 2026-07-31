@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
     const [returns, total] = await Promise.all([
       prisma.saleReturn.findMany({
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
       for (const item of items) {
         await tx.inventory.updateMany({
-          where: { medicineId: item.medicineId },
+          where: { medicineId: item.medicineId, branchId: returnData.branchId },
           data: { quantity: { increment: item.quantity } },
         });
       }

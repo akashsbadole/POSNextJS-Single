@@ -6,6 +6,9 @@ export async function GET() {
   const session = await requireAuth();
   if (!session) return unauthorized();
   try {
+    const branchFilter = session.user.role !== "OWNER" ? { branchId: session.user.branchId } : {};
+    const inventoryBranchFilter = session.user.role !== "OWNER" ? { inventory: { branchId: session.user.branchId } } : {};
+
     const [
       totalMedicines,
       totalPatients,
@@ -15,13 +18,14 @@ export async function GET() {
       recentSales,
     ] = await Promise.all([
       prisma.medicine.count({ where: { isActive: true } }),
-      prisma.patient.count(),
-      prisma.sale.count(),
-      prisma.sale.aggregate({ _sum: { finalAmount: true } }),
+      prisma.patient.count({ where: branchFilter }),
+      prisma.sale.count({ where: branchFilter }),
+      prisma.sale.aggregate({ where: branchFilter, _sum: { finalAmount: true } }),
       prisma.inventory.count({
-        where: { quantity: { lte: 10 } },
+        where: { quantity: { lte: 10 }, ...branchFilter },
       }),
       prisma.sale.findMany({
+        where: branchFilter,
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {

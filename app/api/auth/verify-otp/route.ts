@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
-      return NextResponse.json({ error: "No account found with this phone number" }, { status: 404 });
+      return NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 });
     }
 
     const otpToken = user.email ? await createOTPToken(user.id, user.email) : null;

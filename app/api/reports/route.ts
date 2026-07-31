@@ -36,7 +36,15 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (startDate && endDate) {
-      where.createdAt = { gte: new Date(startDate), lte: new Date(endDate) };
+      const sd = new Date(startDate);
+      const ed = new Date(endDate);
+      if (isNaN(sd.getTime()) || isNaN(ed.getTime())) {
+        return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+      }
+      where.createdAt = { gte: sd, lte: ed };
+    }
+    if (session.user.role !== "OWNER") {
+      where.branchId = session.user.branchId;
     }
 
     const sales = await prisma.sale.findMany({

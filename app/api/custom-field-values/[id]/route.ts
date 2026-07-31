@@ -9,7 +9,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const id = (await params).id;
     await prisma.customFieldValue.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Error deleting custom field value:", error);
     return NextResponse.json({ error: "Failed to delete value" }, { status: 500 });
   }
 }

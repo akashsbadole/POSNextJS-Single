@@ -94,8 +94,8 @@ export async function POST(req: NextRequest) {
           create: items.map((it: { medicineId: string; quantity: number }) => ({
             medicineId: it.medicineId,
             quantity: it.quantity || 1,
-            unitPrice: 0,
-            totalAmount: 0,
+            unitPrice: medicineMap.get(it.medicineId)?.sellingPrice || 0,
+            totalAmount: (medicineMap.get(it.medicineId)?.sellingPrice || 0) * (it.quantity || 1),
           })),
         },
       },

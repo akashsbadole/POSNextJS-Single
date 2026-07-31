@@ -10,7 +10,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const field = await prisma.customFieldDefinition.findUnique({ where: { id } });
     if (!field) return NextResponse.json({ error: "Field not found" }, { status: 404 });
     return NextResponse.json(field);
-  } catch {
+  } catch (error) {
+    console.error("Error fetching custom field:", error);
     return NextResponse.json({ error: "Failed to fetch field" }, { status: 500 });
   }
 }
@@ -36,7 +37,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json(field);
-  } catch {
+  } catch (error) {
+    console.error("Error updating custom field:", error);
     return NextResponse.json({ error: "Failed to update field" }, { status: 500 });
   }
 }
@@ -49,7 +51,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.customFieldDefinition.delete({ where: { id } });
     await prisma.customFieldValue.deleteMany({ where: { fieldId: id } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Error deleting custom field:", error);
     return NextResponse.json({ error: "Failed to delete field" }, { status: 500 });
   }
 }

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { checkCronSecret } from "@/lib/cron-auth";
 
 export async function GET(req: NextRequest) {
+  const auth = checkCronSecret(req);
+  if (auth) return auth;
   try {
     const medicines = await prisma.medicine.findMany({
       select: { id: true, reorderLevel: true, reorderQuantity: true, supplierId: true },
@@ -80,7 +83,7 @@ export async function GET(req: NextRequest) {
       });
 
       const subtotal = po.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
-      const gstTotal = po.items.reduce((sum, i) => sum + (subtotal * i.gstRate) / 100, 0);
+      const gstTotal = po.items.reduce((sum, i) => sum + (i.totalAmount * i.gstRate) / 100, 0);
       await prisma.purchaseOrder.update({
         where: { id: po.id },
         data: {

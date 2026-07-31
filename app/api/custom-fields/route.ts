@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ fields });
-  } catch {
+  } catch (error) {
+    console.error("Error fetching custom fields:", error);
     return NextResponse.json({ error: "Failed to fetch custom fields" }, { status: 500 });
   }
 }

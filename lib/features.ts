@@ -82,6 +82,13 @@ export const BUSINESS_TYPES: { value: BusinessType; label: string; description: 
   { value: "GENERAL_RETAIL", label: "General Retail", description: "Simple POS + inventory, no prescription features" },
 ];
 
+export function enforceFeature(feature: keyof FeatureFlag, businessType?: BusinessType): boolean {
+  if (!businessType) return true;
+  const features = getFeaturesForBusinessType(businessType);
+  return features[feature];
+}
+// ponytail: pass session.user.businessType as second arg to enable gating.
+
 export const FEATURE_LABELS: Record<keyof FeatureFlag, string> = {
   pos: "Point of Sale",
   prescriptions: "Prescriptions",

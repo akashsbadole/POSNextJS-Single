@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateInvoiceNumber } from "@/lib/utils";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { enforceFeature } from "@/lib/features";
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
@@ -13,17 +14,25 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {};
     if (status) where.status = status;
 
-    const transfers = await prisma.stockTransfer.findMany({
-      where,
-      include: {
-        fromBranch: { select: { name: true } },
-        toBranch: { select: { name: true } },
-        items: { include: { medicine: { select: { name: true } } } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
-    return NextResponse.json({ transfers });
+    const [transfers, total] = await Promise.all([
+      prisma.stockTransfer.findMany({
+        where,
+        include: {
+          fromBranch: { select: { name: true } },
+          toBranch: { select: { name: true } },
+          items: { include: { medicine: { select: { name: true } } } },
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.stockTransfer.count({ where }),
+    ]);
+
+    return NextResponse.json({ transfers, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (error) {
     console.error("Error fetching stock transfers:", error);
     return NextResponse.json({ error: "Failed to fetch transfers" }, { status: 500 });

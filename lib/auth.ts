@@ -87,6 +87,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.branchId = user.branchId;
         token.businessType = user.businessType || "RETAIL_PHARMACY";
+        token.twoFactorEnabled = user.twoFactorEnabled || false;
       }
       return token;
     },
@@ -96,6 +97,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         session.user.branchId = token.branchId;
         session.user.businessType = token.businessType || "RETAIL_PHARMACY";
+        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean;
       }
       return session;
     },

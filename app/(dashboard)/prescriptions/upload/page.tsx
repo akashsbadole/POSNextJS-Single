@@ -56,6 +56,9 @@ export default function PrescriptionUploadPage() {
     try {
       const formData = new FormData();
       formData.append("image", files[0]);
+      const text = await runOcr(files[0]);
+      setOcrText(text);
+      if (text) formData.append("ocrText", text);
 
       const uploadRes = await fetch("/api/prescriptions/upload", {
         method: "POST",
@@ -67,26 +70,7 @@ export default function PrescriptionUploadPage() {
         throw new Error(err.error || "Upload failed");
       }
 
-      const { url } = await uploadRes.json();
-      const text = await runOcr(files[0]);
-      setOcrText(text);
-
-      const res = await fetch("/api/prescriptions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: url,
-          ocrText: text,
-          status: "PENDING",
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Upload failed");
-      }
-
-      toast.success("Prescription uploaded successfully");
+      toast.success("Prescription uploaded with OCR");
       router.push("/prescriptions/process");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");

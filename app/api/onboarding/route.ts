@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 export async function GET() {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const setting = await prisma.setting.findUnique({
       where: { key: "onboarding_complete" },
@@ -14,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return unauthorized();
   try {
     const { businessType, store_name, gst_number, phone, address } = await req.json();
 

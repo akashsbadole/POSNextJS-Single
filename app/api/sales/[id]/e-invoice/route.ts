@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import type { Sale, SaleItem, Medicine, Patient, Branch } from "@prisma/client";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import crypto from "crypto";
+import { submitEInvoice, cancelEInvoice } from "@/lib/gsp";
 
 const GST_STATE_CODES: Record<string, string> = {
   "Andhra Pradesh": "37", "Arunachal Pradesh": "12", "Assam": "18", "Bihar": "10",
@@ -98,7 +99,7 @@ function buildGstnPayload(sale: Sale & { branch: Branch; patient: Patient | null
     },
     EwbDtls: null,
     RefDtls: null,
-    IRN,
+    Irn: irn,
   };
 }
 
@@ -121,9 +122,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const irn = computeIrn(sale, sale.items);
     const payload = buildGstnPayload(sale, sale.items, irn);
 
+    const gspResult = await submitEInvoice(payload);
+    if (!gspResult.success) {
+      console.error("GSP submission failed:", gspResult.error);
+    }
+
     await prisma.sale.update({
       where: { id: saleId },
-      data: { eInvoiceId: irn },
+      data: { eInvoiceId: gspResult.irn || irn },
     });
 
     await prisma.auditLog.create({
@@ -132,13 +138,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         action: "E_INVOICE_GENERATED",
         entityType: "sale",
         entityId: sale.invoiceNumber,
-        newData: JSON.stringify({ eInvoiceId: irn, payload }),
+        newData: JSON.stringify({ eInvoiceId: gspResult.irn || irn, gspResult, payload }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      eInvoiceId: irn,
+      eInvoiceId: gspResult.irn || irn,
+      gspResult,
       payload,
     });
   } catch (error) {
@@ -165,7 +172,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const payload = buildGstnPayload(sale, sale.items, sale.eInvoiceId);
     return NextResponse.json({ eInvoiceId: sale.eInvoiceId, payload });
-  } catch {
+  } catch (error) {
+    console.error("Error fetching e-invoice:", error);
     return NextResponse.json({ error: "Failed to fetch e-invoice" }, { status: 500 });
   }
 }
@@ -175,12 +183,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!session) return unauthorized();
   try {
     const saleId = (await params).id;
+    const sale = await prisma.sale.findUnique({ where: { id: saleId }, select: { eInvoiceId: true, cashierId: true, invoiceNumber: true } });
+    if (sale?.eInvoiceId) {
+      const gspResult = await cancelEInvoice(sale.eInvoiceId);
+      if (!gspResult.success) console.error("GSP cancellation failed:", gspResult.error);
+    }
     await prisma.sale.update({
       where: { id: saleId },
       data: { eInvoiceId: null },
     });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Error deleting e-invoice:", error);
     return NextResponse.json({ error: "Failed to delete e-invoice" }, { status: 500 });
   }
 }

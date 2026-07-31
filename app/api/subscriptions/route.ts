@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { enforceFeature } from "@/lib/features";
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth();
   if (!session) return unauthorized();
+  if (!enforceFeature("subscriptions", session.user.businessType as import("@/lib/features").BusinessType)) return NextResponse.json({ error: "Feature not enabled" }, { status: 403 });
   try {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
     const status = searchParams.get("status");
 
     const where: Record<string, unknown> = {};
@@ -49,11 +51,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "customerId, name and items are required" }, { status: 400 });
     }
 
+    const medicineIds = items.map((it: { medicineId: string }) => it.medicineId);
+    const medicines = await prisma.medicine.findMany({
+      where: { id: { in: medicineIds } },
+      select: { id: true, sellingPrice: true },
+    });
+    const priceMap = new Map(medicines.map((m) => [m.id, m.sellingPrice]));
+
     let subtotal = 0;
     for (const it of items) {
-      const med = await prisma.medicine.findUnique({ where: { id: it.medicineId } });
-      if (!med) return NextResponse.json({ error: `Medicine not found: ${it.medicineId}` }, { status: 404 });
-      subtotal += med.sellingPrice * (it.quantity || 1);
+      const price = priceMap.get(it.medicineId);
+      if (!price) return NextResponse.json({ error: `Medicine not found: ${it.medicineId}` }, { status: 404 });
+      subtotal += price * (it.quantity || 1);
     }
 
     const subscription = await prisma.subscription.create({
@@ -69,7 +78,7 @@ export async function POST(req: NextRequest) {
           create: items.map((it: { medicineId: string; quantity: number }) => ({
             medicineId: it.medicineId,
             quantity: it.quantity || 1,
-            unitPrice: 0,
+            unitPrice: priceMap.get(it.medicineId) || 0,
           })),
         },
       },

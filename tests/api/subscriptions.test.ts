@@ -13,7 +13,7 @@ describe("Subscriptions API", () => {
   });
 
   it("creates a subscription", async () => {
-    prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25 } as never);
+    prismaMock.medicine.findMany.mockResolvedValue([{ id: "m1", sellingPrice: 25 }] as never);
     prismaMock.subscription.create.mockResolvedValue({ id: "sub1", name: "Monthly Meds", items: [], customer: {} } as never);
     const { json, res } = await expectJson(POST, createRequest("/api/subscriptions", {
       method: "POST",
@@ -30,7 +30,7 @@ describe("Subscriptions API", () => {
   });
 
   it("returns 404 for missing medicine", async () => {
-    prismaMock.medicine.findUnique.mockResolvedValue(null);
+    prismaMock.medicine.findMany.mockResolvedValue([]);
     const { res } = await expectStatus(POST, createRequest("/api/subscriptions", {
       method: "POST",
       body: { customerId: "c1", name: "Test", items: [{ medicineId: "missing", quantity: 1 }] },

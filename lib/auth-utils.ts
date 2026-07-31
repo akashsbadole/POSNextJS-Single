@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
-import { generateInvoiceNumber } from "@/lib/utils";
+// ponytail: generateInvoiceNumber import removed — reset tokens now use crypto.randomBytes
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -132,10 +132,10 @@ export async function verifyOTP(phone: string, otp: string) {
 export async function requestPasswordReset(email: string) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return { success: false, error: "User not found" };
+    return { success: true };
   }
 
-  const token = await generateInvoiceNumber("RST");
+  const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await prisma.verificationToken.create({
@@ -146,10 +146,33 @@ export async function requestPasswordReset(email: string) {
     },
   });
 
-  // TODO: Send reset email via Resend/SMTP
-  console.log(`Password reset token for ${email}: ${token}`);
+  await sendResetEmail(email, token);
 
   return { success: true };
+}
+
+async function sendResetEmail(email: string, token: string) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || "noreply@pharmacypro.app";
+  try {
+    if (resendKey) {
+      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from,
+          to: email,
+          subject: "Reset your PharmacyPro password",
+          html: `<p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 1 hour.</p>`,
+        }),
+      });
+      return;
+    }
+  } catch {
+    // fall through
+  }
+  console.log(`Password reset token for ${email}: ${token}`);
 }
 
 export async function resetPassword(token: string, newPassword: string) {
