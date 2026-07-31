@@ -53,6 +53,17 @@ export function calculateGST(amount: number, rate: number): { cgst: number; sgst
   };
 }
 
+// amount already includes GST at rate — back out the tax portion (tax-inclusive pricing)
+export function calculateGSTInclusive(amount: number, rate: number): { cgst: number; sgst: number; total: number } {
+  const base = amount / (1 + rate / 100);
+  const tax = amount - base;
+  return {
+    cgst: tax / 2,
+    sgst: tax / 2,
+    total: amount,
+  };
+}
+
 export function getExpiryStatus(expiryDate: Date): { status: "safe" | "warning" | "critical" | "expired"; daysLeft: number } {
   const now = new Date();
   const expiry = new Date(expiryDate);

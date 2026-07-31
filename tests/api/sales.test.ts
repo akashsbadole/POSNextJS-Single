@@ -8,6 +8,11 @@ jest.mock("@/lib/utils", () => ({
     const total = (amount * rate) / 100;
     return { cgst: total / 2, sgst: total / 2, total };
   }),
+  calculateGSTInclusive: jest.fn((amount: number, rate: number) => {
+    const base = amount / (1 + rate / 100);
+    const tax = amount - base;
+    return { cgst: tax / 2, sgst: tax / 2, total: amount };
+  }),
 }));
 
 jest.mock("@/lib/inventory", () => ({
@@ -72,6 +77,57 @@ describe("Sales API", () => {
         body: { items: [{ medicineId: "m1", quantity: 999 }], paymentMode: "cash", branchId: "b1", cashierId: "u1" },
       });
       const { res } = await expectStatus(POST, req, 400);
+    });
+
+    it("applies per-item discount to line total and GST", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 2, remainingQty: 0 }]);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      prismaMock.sale.create.mockResolvedValue({ id: "s1", invoiceNumber: "INV-001", items: [], patient: {} } as never);
+      prismaMock.invoiceCounter.upsert.mockResolvedValue({ prefix: "INV", counter: 1 } as never);
+      prismaMock.auditLog.create.mockResolvedValue({} as never);
+
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 2, discountAmount: 10 }], paymentMode: "cash", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 201);
+      const createData = prismaMock.sale.create.mock.calls[0][0].data;
+      expect(createData.items.create[0].discountAmount).toBe(10);
+      expect(createData.items.create[0].totalAmount).toBeCloseTo(42, 5);
+      expect(createData.taxableAmount).toBeCloseTo(40, 5);
+      expect(createData.totalAmount).toBeCloseTo(42, 5);
+    });
+
+    it("rejects per-item discount above line total", async () => {
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 2, discountAmount: 999 }], paymentMode: "cash", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 400);
+    });
+
+    it("backs out GST when taxInclusive setting is on", async () => {
+      const { pickBatchFEFO } = await import("@/lib/inventory");
+      (pickBatchFEFO as jest.Mock).mockResolvedValue([{ batchId: "b1", batchNumber: "B-001", pickQty: 2, remainingQty: 0 }]);
+      prismaMock.setting.findUnique.mockResolvedValue({ value: "true" } as never);
+      prismaMock.medicine.findUnique.mockResolvedValue({ id: "m1", name: "Paracetamol", sellingPrice: 25, mrp: 30, gstRate: 5, scheduleType: null } as never);
+      prismaMock.$transaction = jest.fn((fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock)) as never;
+      prismaMock.sale.create.mockResolvedValue({ id: "s1", invoiceNumber: "INV-001", items: [], patient: {} } as never);
+      prismaMock.invoiceCounter.upsert.mockResolvedValue({ prefix: "INV", counter: 1 } as never);
+      prismaMock.auditLog.create.mockResolvedValue({} as never);
+
+      const req = createRequest("/api/sales", {
+        method: "POST",
+        body: { items: [{ medicineId: "m1", quantity: 2 }], paymentMode: "cash", branchId: "b1", cashierId: "u1" },
+      });
+      const { res } = await expectStatus(POST, req, 201);
+      const createData = prismaMock.sale.create.mock.calls[0][0].data;
+      expect(createData.totalAmount).toBeCloseTo(50, 5);
+      expect(createData.taxableAmount).toBeCloseTo(50 / 1.05, 5);
+      expect(createData.items.create[0].cgstAmount).toBeCloseTo((50 - 50 / 1.05) / 2, 5);
     });
 
     it("requires prescription for Schedule H medicines", async () => {

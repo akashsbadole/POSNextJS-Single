@@ -64,6 +64,7 @@ export default function SettingsPage() {
         ["session_timeout", settings.session_timeout ?? "30 minutes", "SECURITY"],
         ["max_login_attempts", settings.max_login_attempts ?? "5", "SECURITY"],
         ["twofa_enforcement", settings.twofa_enforcement ?? "Optional", "SECURITY"],
+        ["taxInclusive", settings.taxInclusive ?? "false", "TAX"],
       ];
       await Promise.all(keys.map(([k, v, c]) => saveKey(k, v, c)));
       toast.success("Settings saved");
@@ -128,6 +129,24 @@ export default function SettingsPage() {
                  <div><label htmlFor="phone" className="text-sm font-medium">Phone</label><Input id="phone" value={settings.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></div>
                  <div className="col-span-2"><label htmlFor="address" className="text-sm font-medium">Address</label><Input id="address" value={settings.address ?? ""} onChange={(e) => set("address", e.target.value)} /></div>
                </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Tax</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label htmlFor="taxInclusive" className="text-sm font-medium block mb-1">Prices Include GST</label>
+                <select
+                  id="taxInclusive"
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={settings.taxInclusive ?? "false"}
+                  onChange={(e) => set("taxInclusive", e.target.value)}
+                >
+                  <option value="false">No — GST added on top of selling price</option>
+                  <option value="true">Yes — selling price already includes GST</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Applies to new POS sales. Existing invoices are unchanged.</p>
+              </div>
             </CardContent>
           </Card>
           <Card>

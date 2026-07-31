@@ -180,6 +180,7 @@ async function main() {
       { key: "low_stock_threshold", value: "10", category: "INVENTORY" },
       { key: "expiry_alert_days", value: "30", category: "INVENTORY" },
       { key: "onboarding_complete", value: "true", category: "GENERAL" },
+      { key: "taxInclusive", value: "false", category: "TAX" },
     ],
   });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateInvoiceNumber, calculateGST } from "@/lib/utils";
+import { generateInvoiceNumber, calculateGST, calculateGSTInclusive } from "@/lib/utils";
 import { pickBatchFEFO } from "@/lib/inventory";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
@@ -28,12 +28,16 @@ export async function POST(req: NextRequest) {
     const mode = paymentMode ? paymentMode.toLowerCase() : "cash";
     const cashierId = session.user.id;
 
+    const taxSetting = await prisma.setting.findUnique({ where: { key: "taxInclusive" } });
+    const taxInclusive = taxSetting?.value === "true";
+
     const result = await prisma.$transaction(async (tx) => {
       let subtotal = 0;
-      const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; cgstAmount: number; sgstAmount: number; totalAmount: number; batchNumber?: string }[] = [];
+      const saleItemsData: { medicineId: string; quantity: number; unitPrice: number; mrp: number; gstRate: number; discountAmount: number; cgstAmount: number; sgstAmount: number; totalAmount: number; batchNumber?: string }[] = [];
 
       const scheduleHMeds: string[] = [];
       const itemTotals: number[] = [];
+      const itemDiscounts: number[] = [];
       const batchPicksMap = new Map<string, Awaited<ReturnType<typeof pickBatchFEFO>>>();
 
       for (const item of items) {
@@ -49,6 +53,12 @@ export async function POST(req: NextRequest) {
           scheduleHMeds.push(medicine.name);
         }
 
+        const itemDiscount = item.discountAmount || 0;
+        const itemTotal = medicine.sellingPrice * item.quantity;
+        if (itemDiscount < 0 || itemDiscount > itemTotal) {
+          throw new Error(`Invalid discount on ${medicine.name}`);
+        }
+
         const picks = await pickBatchFEFO(item.medicineId, branchId, item.quantity, tx);
         // ponytail: merge picks per medicine — duplicate lines in one bill must decrement each batch once
         const existing = batchPicksMap.get(item.medicineId) || [];
@@ -58,15 +68,16 @@ export async function POST(req: NextRequest) {
           byBatch.set(p.batchId, prev ? { ...prev, pickQty: prev.pickQty + p.pickQty } : p);
         }
         batchPicksMap.set(item.medicineId, [...byBatch.values()]);
-        const itemTotal = medicine.sellingPrice * item.quantity;
         subtotal += itemTotal;
         itemTotals.push(itemTotal);
+        itemDiscounts.push(itemDiscount);
         saleItemsData.push({
           medicineId: item.medicineId,
           quantity: item.quantity,
           unitPrice: medicine.sellingPrice,
           mrp: medicine.mrp,
           gstRate: medicine.gstRate,
+          discountAmount: itemDiscount,
           batchNumber: picks[0]?.batchNumber,
           cgstAmount: 0,
           sgstAmount: 0,
@@ -90,18 +101,25 @@ export async function POST(req: NextRequest) {
 
       for (let i = 0; i < saleItemsData.length; i++) {
         const ratio = subtotal > 0 ? itemTotals[i] / subtotal : 1 / saleItemsData.length;
-        const discountedItemTotal = itemTotals[i] - discountAmount * ratio;
-        const gst = calculateGST(discountedItemTotal, saleItemsData[i].gstRate);
+        const discountedItemTotal = itemTotals[i] - itemDiscounts[i] - discountAmount * ratio;
+        const gst = taxInclusive
+          ? calculateGSTInclusive(discountedItemTotal, saleItemsData[i].gstRate)
+          : calculateGST(discountedItemTotal, saleItemsData[i].gstRate);
         saleItemsData[i].cgstAmount = gst.cgst;
         saleItemsData[i].sgstAmount = gst.sgst;
-        saleItemsData[i].totalAmount = discountedItemTotal + gst.total;
+        // exclusive: gst.total is tax only, add base back; inclusive: gst.total already is the customer price
+        saleItemsData[i].totalAmount = taxInclusive ? gst.total : discountedItemTotal + gst.total;
         totalCGST += gst.cgst;
         totalSGST += gst.sgst;
       }
 
-      const taxableAmount = subtotal - discountAmount;
+      const totalItemDiscount = itemDiscounts.reduce((s, d) => s + d, 0);
+      // ponytail: inclusive mode — customer-facing total already contains GST, so tax is backed out for taxableAmount
+      const totalAmount = taxInclusive
+        ? subtotal - discountAmount - totalItemDiscount
+        : subtotal - discountAmount - totalItemDiscount + totalCGST + totalSGST;
+      const taxableAmount = totalAmount - (totalCGST + totalSGST);
       const totalGst = totalCGST + totalSGST;
-      const totalAmount = taxableAmount + totalGst;
       const finalAmount = Math.round(totalAmount);
       const roundOff = finalAmount - totalAmount;
 
@@ -183,6 +201,7 @@ export async function POST(req: NextRequest) {
     const status = message.startsWith("Medicine not found:") ? 404
       : message.startsWith("Prescription required") ? 422
       : message.startsWith("Insufficient stock") ? 400
+      : message.startsWith("Invalid discount") ? 400
       : 500;
     if (status === 500) console.error("Error creating sale:", error);
     return NextResponse.json({ error: message }, { status });

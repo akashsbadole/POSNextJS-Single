@@ -33,6 +33,7 @@ interface CartItem {
   price: number;
   quantity: number;
   gstRate: number;
+  discount: number;
   batch: string;
 }
 
@@ -57,6 +58,7 @@ export default function POSPage() {
   const [paymentMode, setPaymentMode] = useState<"cash" | "card" | "upi" | "credit">("cash");
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "flat">("none");
   const [discountValue, setDiscountValue] = useState(0);
+  const [taxInclusive, setTaxInclusive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -65,6 +67,10 @@ export default function POSPage() {
       .then((data) => setMedicines(data.medicines))
       .catch(() => toast.error("Failed to load medicines"))
       .finally(() => setLoading(false));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setTaxInclusive(d?.settings?.find?.((s: { key: string; value: string }) => s.key === "taxInclusive")?.value === "true"))
+      .catch(() => {});
   }, []);
 
   const addToCart = (med: Medicine) => {
@@ -76,7 +82,7 @@ export default function POSPage() {
         );
       }
       const batch = med.inventories?.[0]?.batches?.[0]?.batchNumber || "N/A";
-      return [...prev, { id: med.id, medicineId: med.id, name: med.name, genericName: med.genericName, price: med.sellingPrice, quantity: 1, gstRate: med.gstRate, batch }];
+      return [...prev, { id: med.id, medicineId: med.id, name: med.name, genericName: med.genericName, price: med.sellingPrice, quantity: 1, gstRate: med.gstRate, discount: 0, batch }];
     });
   };
 
@@ -97,6 +103,7 @@ export default function POSPage() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalItemDiscount = cart.reduce((sum, item) => sum + item.discount, 0);
 
   let discountAmount = 0;
   if (discountType === "percentage") {
@@ -105,13 +112,21 @@ export default function POSPage() {
     discountAmount = discountValue;
   }
 
-  const taxableAmount = subtotal - discountAmount;
+  // ponytail: mirrors server math — per-line discount, then GST either added or backed out
   const totalGST = cart.reduce((sum, item) => {
     const itemTotal = item.price * item.quantity;
-    return sum + (itemTotal * item.gstRate) / 100;
+    const discounted = itemTotal - item.discount;
+    if (taxInclusive) {
+      const base = discounted / (1 + item.gstRate / 100);
+      return sum + (discounted - base);
+    }
+    return sum + (discounted * item.gstRate) / 100;
   }, 0);
 
-  const totalAmount = taxableAmount + totalGST;
+  const totalAmount = taxInclusive
+    ? subtotal - discountAmount - totalItemDiscount
+    : subtotal - discountAmount - totalItemDiscount + totalGST;
+  const taxableAmount = totalAmount - totalGST;
   const roundOff = Math.round(totalAmount) - totalAmount;
   const finalAmount = Math.round(totalAmount);
 
@@ -125,7 +140,7 @@ export default function POSPage() {
     const win = window.open("", "_blank", "width=400,height=600");
     if (!win) { toast.error("Pop-up blocked — allow pop-ups to print"); return; }
     const rows = cart
-      .map((item) => `<tr><td>${item.name}</td><td>${item.quantity}</td><td>₹${(item.price * item.quantity).toFixed(2)}</td></tr>`)
+      .map((item) => `<tr><td>${item.name}</td><td>${item.quantity}</td><td>₹${(item.price * item.quantity - item.discount).toFixed(2)}</td></tr>`)
       .join("");
     win.document.write(`<!doctype html><html><head><title>Bill</title><style>
       body{font:13px/1.5 monospace;padding:24px;color:#111}
@@ -137,7 +152,7 @@ export default function POSPage() {
       <h2>PharmacyPro</h2>
       <div class="muted">${invoiceNumber ? `Invoice: ${invoiceNumber}<br>` : ""}${new Date().toLocaleString()}</div>
       <table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="muted" style="display:flex;justify-content:space-between"><span>Payment: ${paymentMode.toUpperCase()}</span><span>GST incl.</span></div>
+      <div class="muted" style="display:flex;justify-content:space-between"><span>Payment: ${paymentMode.toUpperCase()}</span><span>GST ${taxInclusive ? "incl." : "excl."}</span></div>
       <div class="total" style="display:flex;justify-content:space-between;margin-top:8px"><span>Total</span><span>₹${finalAmount.toFixed(2)}</span></div>
       <script>window.onload=()=>{window.print();}</script>
       </body></html>`);
@@ -158,6 +173,7 @@ export default function POSPage() {
           items: cart.map((item) => ({
             medicineId: item.medicineId,
             quantity: item.quantity,
+            discountAmount: item.discount || undefined,
           })),
           paymentMode,
           discountType: discountType === "none" ? undefined : discountType,
@@ -288,6 +304,23 @@ export default function POSPage() {
                   <p className="font-medium text-sm truncate">{item.name}</p>
                   <p className="text-xs text-gray-500">Batch: {item.batch}</p>
                   <p className="text-xs text-gray-500">₹{item.price.toFixed(2)} × {item.quantity}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-xs text-gray-400">Disc</span>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      className="w-16 h-6 text-xs rounded border border-input bg-background px-1"
+                      value={item.discount || ""}
+                      onChange={(e) =>
+                        setCart((prev) =>
+                          prev.map((it) =>
+                            it.id === item.id ? { ...it, discount: Math.min(Math.max(0, Number(e.target.value) || 0), it.price * it.quantity) } : it
+                          )
+                        )
+                      }
+                    />
+                  </div>
                 </div>
                  <div className="flex items-center gap-2">
                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)} aria-label="Decrease quantity">
@@ -363,8 +396,14 @@ export default function POSPage() {
             </div>
             {discountAmount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span>Discount</span>
+                <span>Bill Discount</span>
                 <span>-₹{discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {totalItemDiscount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Item Discounts</span>
+                <span>-₹{totalItemDiscount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -372,7 +411,7 @@ export default function POSPage() {
               <span>₹{taxableAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">GST</span>
+              <span className="text-gray-500">GST {taxInclusive ? "(incl.)" : ""}</span>
               <span>₹{totalGST.toFixed(2)}</span>
             </div>
             {roundOff !== 0 && (
