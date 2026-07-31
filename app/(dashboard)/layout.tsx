@@ -138,6 +138,7 @@ const navItems = [
         icon: DollarSign,
       },
       { title: "Custom Reports", href: "/reports/custom", icon: BarChart3 },
+      { title: "GST Compliance", href: "/reports/gst", icon: Receipt },
     ],
   },
   {
