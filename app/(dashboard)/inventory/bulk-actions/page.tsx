@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, Download, FileSpreadsheet, Barcode, Loader2, CheckCircle2 } from "lucide-react";
@@ -27,6 +28,8 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
 }
 
 export default function BulkActionsPage() {
+  const { data: session } = useSession();
+  const branchId = session?.user?.branchId;
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -90,6 +93,28 @@ export default function BulkActionsPage() {
             return;
           }
 
+          const qty = parseInt(record.quantity);
+          if (Number.isInteger(qty) && qty > 0) {
+            const invRes = await fetch("/api/inventory", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                medicineId: (await apiRes.json()).id,
+                branchId: branchId,
+                quantity: qty,
+                batchNumber: record.batchNumber || undefined,
+                expiryDate: record.expiryDate || undefined,
+                purchasePrice: parseFloat(record.purchasePrice) || undefined,
+                mrp: parseFloat(record.mrp) || undefined,
+              }),
+            });
+            if (!invRes.ok) {
+              const err = await invRes.json();
+              errors.push(`Row ${i + 2}: ${err.error ?? invRes.statusText}`);
+              return;
+            }
+          }
+
           successRows.push(row);
         })
       );
@@ -106,7 +131,7 @@ export default function BulkActionsPage() {
     }
 
     setImporting(false);
-  }, []);
+  }, [branchId]);
 
   const handleExport = useCallback(async (label: string) => {
     try {

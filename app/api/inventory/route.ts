@@ -7,6 +7,10 @@ const inventorySchema = z.object({
   medicineId: z.string().min(1),
   branchId: z.string().min(1),
   quantity: z.number().int().min(0).default(0),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().refine((s) => !isNaN(Date.parse(s)), "Invalid date").optional(),
+  purchasePrice: z.number().min(0).optional(),
+  mrp: z.number().min(0).optional(),
 });
 
 const inventoryUpdateSchema = z.object({
@@ -65,8 +69,26 @@ export async function POST(req: NextRequest) {
   if (!session) return unauthorized();
   try {
     const body = await req.json();
-    const validated = inventorySchema.parse(body);
-    const item = await prisma.inventory.create({ data: validated });
+    const { batchNumber, expiryDate, purchasePrice, mrp, ...rest } = inventorySchema.parse(body);
+    // ponytail: upsert so import rows can add stock to an existing medicine; batch only when caller supplies batchNumber
+    const item = await prisma.inventory.upsert({
+      where: { medicineId_branchId: { medicineId: rest.medicineId, branchId: rest.branchId } },
+      update: { quantity: { increment: rest.quantity } },
+      create: { medicineId: rest.medicineId, branchId: rest.branchId, quantity: rest.quantity },
+    });
+    if (batchNumber) {
+      await prisma.batch.create({
+        data: {
+          batchNumber,
+          medicineId: rest.medicineId,
+          inventoryId: item.id,
+          quantity: rest.quantity,
+          expiryDate: expiryDate ? new Date(expiryDate) : new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000),
+          purchasePrice: purchasePrice ?? 0,
+          mrp: mrp ?? 0,
+        },
+      });
+    }
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

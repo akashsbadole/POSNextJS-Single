@@ -60,7 +60,7 @@ export default function POSPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch("/api/medicines?limit=50")
+    fetch("/api/medicines?limit=1000")
       .then((r) => r.json())
       .then((data) => setMedicines(data.medicines))
       .catch(() => toast.error("Failed to load medicines"))

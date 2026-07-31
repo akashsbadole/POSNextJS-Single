@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -206,6 +206,35 @@ export default function DashboardLayout({
     {},
   );
   const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; createdAt: string; isRead: boolean }[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const loadNotifications = useCallback(() => {
+    fetch("/api/notifications?limit=10")
+      .then((r) => r.json())
+      .then((d) => {
+        setNotifications(d.notifications || []);
+        setUnread(d.unread || 0);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated") loadNotifications();
+  }, [status, loadNotifications]);
+
+  const openNotifications = () => {
+    setNotifOpen((v) => {
+      const next = !v;
+      if (next && unread > 0) {
+        fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) })
+          .then(() => setUnread(0))
+          .catch(() => {});
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -437,15 +466,37 @@ export default function DashboardLayout({
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              aria-label="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                aria-label="Notifications"
+                onClick={openNotifications}
+              >
+                <Bell className="w-5 h-5" />
+                {unread > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                )}
+              </Button>
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border z-50 overflow-hidden">
+                  <div className="px-4 py-2 border-b text-sm font-semibold">Notifications</div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 && (
+                      <p className="px-4 py-8 text-center text-sm text-gray-500">No notifications</p>
+                    )}
+                    {notifications.map((n) => (
+                      <div key={n.id} className="px-4 py-3 border-b last:border-0">
+                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="icon"
