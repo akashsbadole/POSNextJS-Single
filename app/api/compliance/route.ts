@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import type { Prisma } from "@prisma/client";
 
 // ponytail: registers are rate-wise summaries of existing data (no buyer GSTIN
 // captured at POS -> everything reports as B2C). Upgrade path: capture
@@ -131,6 +132,42 @@ export async function GET(req: NextRequest) {
         return new NextResponse(csv(out), { headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=licenses.csv" } });
       }
       return NextResponse.json({ licenses: rows });
+    }
+
+    if (report === "restricted") {
+      const startDate = searchParams.get("startDate") || new Date(Date.now() - 30 * 86400000).toISOString();
+      const endDate = searchParams.get("endDate") || new Date().toISOString();
+      const where: Prisma.SaleItemWhereInput = {
+        medicine: { scheduleType: { in: ["X", "H1"] } },
+        sale: { createdAt: { gte: new Date(startDate), lte: new Date(endDate) } },
+      };
+      if (branchFilter && !searchParams.get("all")) where.sale = { ...(where.sale as object), branchId: branchFilter };
+      const items = await prisma.saleItem.findMany({
+        where,
+        include: { medicine: { select: { name: true, genericName: true, scheduleType: true } }, sale: { include: { patient: true, cashier: { select: { name: true } } } } },
+        orderBy: { sale: { createdAt: "desc" } },
+      });
+      const rows = items.map((it) => ({
+        id: it.id,
+        saleId: it.saleId,
+        invoiceNumber: it.sale.invoiceNumber,
+        date: it.sale.createdAt,
+        medicine: it.medicine.name,
+        genericName: it.medicine.genericName,
+        scheduleType: it.medicine.scheduleType,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        patient: it.sale.patient ? { name: it.sale.patient.name, phone: it.sale.patient.phone } : null,
+        cashier: it.sale.cashier?.name ?? "",
+      }));
+      if (format === "csv") {
+        const out: (string | number)[][] = [
+          ["Invoice", "Date", "Medicine", "Schedule", "Qty", "Unit Price", "Patient", "Cashier"],
+          ...rows.map((r) => [r.invoiceNumber, r.date.toISOString(), r.medicine, r.scheduleType ?? "", r.quantity, r.unitPrice, r.patient?.name ?? "", r.cashier]),
+        ];
+        return new NextResponse(csv(out), { headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=restricted-drugs.csv" } });
+      }
+      return NextResponse.json({ items: rows });
     }
 
     return NextResponse.json({ error: "Unknown report" }, { status: 400 });

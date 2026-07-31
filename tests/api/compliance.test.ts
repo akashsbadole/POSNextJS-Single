@@ -46,4 +46,28 @@ describe("Compliance API", () => {
     expect(json.licenses[0].expiringSoon).toBe(true);
     expect(json.licenses[0].daysUntilExpiry).toBe(30);
   });
+
+  it("lists restricted drug (Schedule X/H1) sales", async () => {
+    prismaMock.saleItem.findMany.mockResolvedValue([
+      {
+        id: "si1", saleId: "s1", quantity: 2, unitPrice: 120,
+        medicine: { name: "Diazepam", genericName: "diazepam", scheduleType: "X" },
+        sale: {
+          invoiceNumber: "INV-9", createdAt: new Date("2026-08-01"),
+          patient: { name: "Ravi", phone: "9898" }, cashier: { name: "Ann" },
+        },
+      },
+    ] as never);
+
+    const { json } = await expectJson(GET, createRequest("/api/compliance?report=restricted"));
+    expect(json.items).toHaveLength(1);
+    expect(json.items[0]).toMatchObject({ scheduleType: "X", medicine: "Diazepam", patient: { name: "Ravi" } });
+    expect(prismaMock.saleItem.findMany).toBeCalledWith(expect.objectContaining({ where: expect.objectContaining({ medicine: { scheduleType: { in: ["X", "H1"] } } }) }));
+  });
+
+  it("exports restricted drug sales as CSV", async () => {
+    prismaMock.saleItem.findMany.mockResolvedValue([] as never);
+    const res = await GET(createRequest("/api/compliance?report=restricted&format=csv"));
+    expect(res.headers.get("content-type")).toContain("text/csv");
+  });
 });

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 
-type Tab = "gstr1" | "gstr2a" | "licenses";
+type Tab = "gstr1" | "gstr2a" | "licenses" | "restricted";
 
 export default function GSTCompliancePage() {
   const [tab, setTab] = useState<Tab>("gstr1");
@@ -44,12 +44,14 @@ export default function GSTCompliancePage() {
   const invoices = (data?.invoices as { invoiceNumber: string; date: string; taxableAmount: number; total: number; mode: string }[]) || [];
   const purchases = (data?.purchases as { poNumber: string; date: string; supplier: string; gstin: string; taxable: number }[]) || [];
   const licenses = (data?.licenses as { licenseNumber: string; licenseType: string; holderName: string; issuingAuthority: string | null; expiryDate: string; daysUntilExpiry: number; expiringSoon: boolean; expired: boolean }[]) || [];
+  const restricted = (data?.items as { invoiceNumber: string; date: string; medicine: string; scheduleType: string; quantity: number; unitPrice: number; patient: { name: string; phone: string | null } | null; cashier: string }[]) || [];
   const branch = data?.branch as { gstin?: string | null; name?: string } | null;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "gstr1", label: "GSTR-1 (Sales)" },
     { key: "gstr2a", label: "GSTR-2A (Purchases)" },
     { key: "licenses", label: "Licenses" },
+    { key: "restricted", label: "Restricted Drugs" },
   ];
 
   return (
@@ -193,6 +195,37 @@ export default function GSTCompliancePage() {
                       </TableRow>
                     ))}
                     {licenses.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-500">No licenses found</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {tab === "restricted" && (
+            <Card>
+              <CardHeader><CardTitle>Restricted Drug Sales (Schedule X / H1)</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice</TableHead><TableHead>Date</TableHead><TableHead>Medicine</TableHead><TableHead>Sched</TableHead>
+                      <TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Price</TableHead><TableHead>Patient</TableHead><TableHead>Cashier</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {restricted.map((r) => (
+                      <TableRow key={`${r.invoiceNumber}-${r.medicine}`}>
+                        <TableCell className="font-mono text-xs">{r.invoiceNumber}</TableCell>
+                        <TableCell className="text-xs">{new Date(r.date).toLocaleDateString("en-IN")}</TableCell>
+                        <TableCell className="text-sm">{r.medicine}</TableCell>
+                        <TableCell><Badge variant="outline">Sched {r.scheduleType}</Badge></TableCell>
+                        <TableCell className="text-right">{r.quantity}</TableCell>
+                        <TableCell className="text-right">₹{r.unitPrice.toLocaleString("en-IN")}</TableCell>
+                        <TableCell className="text-xs">{r.patient ? `${r.patient.name}${r.patient.phone ? ` · ${r.patient.phone}` : ""}` : "—"}</TableCell>
+                        <TableCell className="text-xs">{r.cashier}</TableCell>
+                      </TableRow>
+                    ))}
+                    {restricted.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500">No restricted drug sales in range</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </CardContent>
