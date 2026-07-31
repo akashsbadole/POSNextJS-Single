@@ -25,4 +25,20 @@ describe("Inventory API", () => {
     const { json } = await expectJson(PUT, req);
     expect(json.quantity).toBe(200);
   });
+
+  it("persists rack and shelf on update", async () => {
+    prismaMock.inventory.update.mockResolvedValue({ id: "inv1", rack: "A1", shelf: "2" } as never);
+    prismaMock.auditLog.create.mockResolvedValue({} as never);
+    const req = createRequest("/api/inventory", { method: "PUT", body: { id: "inv1", rack: "A1", shelf: "2" } });
+    const { json } = await expectJson(PUT, req);
+    expect(json.rack).toBe("A1");
+    expect(json.shelf).toBe("2");
+    expect(prismaMock.inventory.update).toHaveBeenCalledWith(expect.objectContaining({ data: { rack: "A1", shelf: "2" } }));
+  });
+
+  it("rejects a rack longer than 20 chars", async () => {
+    const req = createRequest("/api/inventory", { method: "PUT", body: { id: "inv1", rack: "X".repeat(21) } });
+    const { res } = await expectJson(PUT, req).then((r) => ({ res: r.res }));
+    expect(res.status).toBe(400);
+  });
 });

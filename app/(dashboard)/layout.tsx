@@ -44,6 +44,7 @@ import {
   BookOpen,
   Wallet,
   UserCheck,
+  LayoutGrid,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -72,6 +73,11 @@ const navItems = [
         title: "Stock Alerts",
         href: "/inventory/stock-alerts",
         icon: AlertTriangle,
+      },
+      {
+        title: "Stock & Racks",
+        href: "/inventory/stock",
+        icon: LayoutGrid,
       },
       {
         title: "Bulk Actions",

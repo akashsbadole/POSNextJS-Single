@@ -16,6 +16,8 @@ const inventorySchema = z.object({
 const inventoryUpdateSchema = z.object({
   quantity: z.number().int().min(0).optional(),
   reorderLevel: z.number().int().min(0).optional(),
+  rack: z.string().max(20).optional(),
+  shelf: z.string().max(20).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -25,11 +27,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const branchId = searchParams.get("branchId");
     const lowStock = searchParams.get("lowStock") === "true";
+    const q = searchParams.get("q");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
     const where: Record<string, unknown> = {};
     if (branchId) where.branchId = branchId;
+    if (q) where.medicine = { name: { contains: q, mode: "insensitive" } };
 
     let inventory: Awaited<ReturnType<typeof prisma.inventory.findMany>>;
     let total: number;
@@ -127,6 +131,17 @@ export async function PUT(req: NextRequest) {
             change: item.quantity - before.quantity,
             reason: reason || null,
           }),
+        },
+      });
+    }
+    if (validated.rack !== undefined || validated.shelf !== undefined) {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "UPDATE",
+          entityType: "inventory",
+          entityId: id,
+          newData: JSON.stringify({ rack: validated.rack, shelf: validated.shelf }),
         },
       });
     }
