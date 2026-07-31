@@ -201,6 +201,11 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
+    // ponytail: non-OWNER users see only their branch's sales; OWNER sees all (multi-branch)
+    if (session.user.branchId && session.user.role !== "OWNER") {
+      where.branchId = session.user.branchId;
+    }
+
     if (startDate && endDate) {
       where.createdAt = {
         gte: new Date(startDate),

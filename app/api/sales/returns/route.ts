@@ -11,8 +11,15 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
 
+    const where: Record<string, unknown> = {};
+    // ponytail: mirror sales GET scoping — non-OWNER sees only their branch
+    if (session.user.branchId && session.user.role !== "OWNER") {
+      where.sale = { branchId: session.user.branchId };
+    }
+
     const [returns, total] = await Promise.all([
       prisma.saleReturn.findMany({
+        where,
         include: {
           sale: { select: { invoiceNumber: true } },
           items: true,
@@ -21,7 +28,7 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: { createdAt: "desc" },
       }),
-      prisma.saleReturn.count(),
+      prisma.saleReturn.count({ where }),
     ]);
 
     return NextResponse.json({ returns, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
@@ -39,6 +46,9 @@ export async function POST(req: NextRequest) {
     const { items, saleId, reason, branchId } = body;
     if (!saleId || !Array.isArray(items) || items.length === 0 || !branchId) {
       return NextResponse.json({ error: "saleId, branchId and items are required" }, { status: 400 });
+    }
+    if (body.refundMode && !["CASH", "UPI", "CARD", "BANK_TRANSFER"].includes(body.refundMode)) {
+      return NextResponse.json({ error: "Invalid refund mode" }, { status: 400 });
     }
 
     const sale = await prisma.sale.findUnique({
